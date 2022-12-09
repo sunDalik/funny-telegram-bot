@@ -1,0 +1,7 @@
+{
+    "name": "chat name",
+    "type": "private_supergroup",
+    "id": 123456,
+    "comment": "You can export your chat history to add old messages to the bot",
+    "messages": []
+}

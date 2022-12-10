@@ -52,7 +52,7 @@ def setDict(update: Update, context):
          return
     print("Set")
     print(update.message.text)
-    match = re.match(r'/set\s+([^\s]+)\s+(.+)', update.message.text)
+    match = re.match(r'/set\s+([^\s]+)\s+(.+)', update.message.text, re.DOTALL)
     if (match == None):
         print('match none')
         update.message.reply_text("match = none")
@@ -134,7 +134,7 @@ def error(update, context):
 #TODO log messages that are not commands
 if __name__ == '__main__':
     logger.info("Initializing Redis")
-    r = redis.Redis(host='localhost', port=6379)
+    r = redis.Redis(host='localhost', port=6379, db=1)
 
     logger.info("Parsing messages...")
     f = open('_secrets/messages.json')

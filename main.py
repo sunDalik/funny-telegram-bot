@@ -166,13 +166,19 @@ def getAll(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info("GET ALL")
+    match = re.match(r'/getall\s+([^\s]+)', update.message.text)
+    must_start_with = ""
+    if match:
+        must_start_with += match.group(1)
     keys = r.hgetall(DICTIONARY_HASH)
     keys_list = [key.decode('utf-8') for key in keys]
+    if must_start_with != "":
+        keys_list = [key for key in keys_list if key.lower().startswith(must_start_with.lower())]
     keys_list.sort()
-    utter_message = 'Так вот же все ГЕТЫ:\n\n'
+    header = 'Так вот же все ГЕТЫ:\n\n' if must_start_with == "" else f'Вот все ГЕТЫ, начинающиеся с \"{must_start_with}\":\n\n'
     response = ", ".join(keys_list)
-    logger.info(utter_message + response)
-    update.message.reply_text(utter_message + response, quote=False)
+    logger.info(header + response)
+    update.message.reply_text(header + response, quote=False)
 
 
 def error(update: Update, context):
@@ -184,7 +190,7 @@ def again(update: Update, context):
         try:
             again_function()
         except:
-            pass
+            update.message.reply_text("А что /again? Кажется я все забыл...", quote=False)
     else:
         update.message.reply_text("А что /again? Кажется я все забыл...", quote=False)
 

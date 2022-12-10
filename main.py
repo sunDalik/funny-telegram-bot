@@ -25,8 +25,10 @@ def in_whitelist(update: Update) -> bool:
         return False
     return True
 
+
 def ping(update: Update, context):
     update.message.reply_text("meow", quote=True)
+
 
 def test(update: Update, context):
     update.message.reply_text("Looking cool joker!")
@@ -36,10 +38,10 @@ def contribute(update: Update, context):
 
 def getDict(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Get")
     print(update.message.text)
-    match = re.match(r'/get\s+([\S]+)', update.message.text)
+    match = re.match(r'/get\s+([^\s]+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
         return
@@ -50,9 +52,10 @@ def getDict(update: Update, context):
         return
     update.message.reply_text(val.decode("utf-8"), quote=False)
 
+
 def setDict(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Set")
     print(update.message.text)
     match = re.match(r'/set\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
@@ -60,7 +63,7 @@ def setDict(update: Update, context):
         print('match none')
         update.message.reply_text("match = none")
         return
-        
+
     key = match.group(1)
     val = match.group(2)
     old_value = r.hget(DICTIONARY_HASH, key)
@@ -70,6 +73,7 @@ def setDict(update: Update, context):
     else:
         update.message.reply_text(f"Set success!", quote=False)
 
+
 def sentence_matches_definition(definition: str, sentence: list) -> bool:
     if (len(sentence) != len(definition)):
         return False
@@ -78,9 +82,10 @@ def sentence_matches_definition(definition: str, sentence: list) -> bool:
             return False
     return True
 
+
 def explain(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Explain")
     print(update.message.text)
     match = re.match(r'/explain\s+([\S]+)', update.message.text)

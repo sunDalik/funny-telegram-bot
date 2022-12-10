@@ -8,7 +8,7 @@ import json
 import random
 from string import punctuation
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -17,13 +17,13 @@ RECEIVED_MESSAGES_LIST = 'received_messages_list'
 MESSAGES = []
 MAX_ITERS = 999_999
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(punctuation)))
-ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|s)$", re.IGNORECASE)
+ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 
 again_function = None
 
 def in_whitelist(update: Update) -> bool:
     if (update.message.chat_id not in secrets_chat_ids):
-        print(f"Blacklisted chat id: {update.message.chat_id}")
+        logger.warn(f"Blacklisted chat id: {update.message.chat_id}")
         update.message.reply_text("This chat is not whitelisted")
         return False
     return True
@@ -42,8 +42,7 @@ def contribute(update: Update, context):
 def getDict(update: Update, context):
     if (not in_whitelist(update)):
         return
-    print("Get")
-    print(update.message.text)
+    logger.info(f"[getDict] {update.message.text}")
     match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Ты чего хочешь-то?", quote=True)
@@ -53,17 +52,15 @@ def getDict(update: Update, context):
     if (val == None):
         update.message.reply_text("Не помню такого", quote=True)
         return
-    update.message.reply_text(val.decode("utf-8"), quote=False)
+    update.message.reply_text(f"{key}\n{val.decode('utf-8')}", quote=False)
 
 
 def setDict(update: Update, context):
     if (not in_whitelist(update)):
         return
-    print("Set")
-    print(update.message.text)
+    logger.info(f"[setDict] {update.message.text}")
     match = re.match(r'/[\S]+\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
     if (match == None):
-        print('match none')
         update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
         return
 
@@ -79,8 +76,7 @@ def setDict(update: Update, context):
 def delDict(update: Update, context):
     if (not in_whitelist(update)):
         return
-    print("Del")
-    print(update.message.text)
+    logger.info(f"[delDict] {update.message.text}")
     match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Не понял, а что удалить-то хочешь?")
@@ -105,8 +101,7 @@ def sentence_matches_definition(definition: str, sentence: list) -> bool:
 def explain(update: Update, context):
     if (not in_whitelist(update)):
         return
-    print("Explain")
-    print(update.message.text)
+    logger.info(f"[explain] {update.message.text}")
     match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Что тебе объяснить?", quote=True)
@@ -114,7 +109,6 @@ def explain(update: Update, context):
     global again_function
     again_function = lambda: explain(update, context)
     definition = match.group(1)
-    print(definition)
     result = None
     shuffled_messages = MESSAGES.copy()
     random.shuffle(shuffled_messages)
@@ -127,22 +121,21 @@ def explain(update: Update, context):
     if (result == None):
         update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
         return
-    print(result)
+    logger.info(f"  Result: {result}")
     update.message.reply_text(f"*{definition}*\n{result}", parse_mode=ParseMode.MARKDOWN, quote=False)
 
 def talk(update: Update, context):
     if (not in_whitelist(update)):
          return
-    print("Talk")
+    logger.info("[talk]")
     rnd_message = random.choice(MESSAGES)
-    print(rnd_message)
+    logger.info(f"  Result: {rnd_message}")
     update.message.reply_text(rnd_message, quote=False)
 
 def opinion(update: Update, context):
     if (not in_whitelist(update)):
          return
-    print("Opinion")
-    print(update.message.text)
+    logger.info(f"[opinion] {update.message.text}")
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
         update.message.reply_text("О чем ты хотел узнать мое мнение?", quote=True)
@@ -152,7 +145,7 @@ def opinion(update: Update, context):
     user_input = match.group(1)
     things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
     things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
-    print(things)
+    logger.info(f"  Parse result: {things}")
     shuffled_messages = MESSAGES.copy()
     random.shuffle(shuffled_messages)
     for rnd_message in shuffled_messages:
@@ -166,7 +159,7 @@ def opinion(update: Update, context):
 def getAll(update: Update, context):
     if (not in_whitelist(update)):
         return
-    logger.info("GET ALL")
+    logger.info("[getAll]")
     match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
     must_start_with = ""
     if match:
@@ -178,7 +171,6 @@ def getAll(update: Update, context):
     keys_list.sort()
     header = 'Так вот же все ГЕТЫ:\n\n' if must_start_with == "" else f'Вот все ГЕТЫ, начинающиеся с \"{must_start_with}\":\n\n'
     response = ", ".join(keys_list)
-    logger.info(header + response)
     update.message.reply_text(header + response, quote=False)
 
 
@@ -198,8 +190,7 @@ def again(update: Update, context):
 def handle_normal_messages(update: Update, context):
     if (not in_whitelist(update)):
          return
-    logger.info("Received normal message")
-    logger.info(update.message.text)
+    logger.info(f"[msg] {update.message.text}")
     r.rpush(RECEIVED_MESSAGES_LIST, update.message.text)
     MESSAGES.append(update.message.text)
 
@@ -241,5 +232,5 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_normal_messages))
     u.dispatcher.add_error_handler(error)
 
-    logger.info("Polling for updates...")
+    logger.info("Started polling for updates")
     u.start_polling()

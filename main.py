@@ -188,11 +188,11 @@ def getAll(update: Update, context):
     update.message.reply_text(header + response, quote=False)
 
 
-def jerkReg(update: Update, context):
+def jerk_reg(update: Update, context):
     if not in_whitelist(update):
         return
     # set user id to regs
-    logger.info('REG FOR JERK OF THE DAY')
+    logger.info('[jerk_reg]')
     reg_user_id = update.message.from_user.id
     reg_user_name = update.message.from_user.username
     already_register = r.sismember(JERKS_REG_SET, reg_user_id)
@@ -202,20 +202,20 @@ def jerkReg(update: Update, context):
         old_username = r.hget(USER_ID_TO_NAME, reg_user_id).decode('utf-8')
         if old_username != reg_user_name:
             r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
-            update.message.reply_text(f"@{reg_user_name}, поменял твой никнейм.")  # change to something funnier
+            update.message.reply_text(f"@{reg_user_name}, поменял твой никнейм.", quote=False)  # change to something funnier
             return
-        update.message.reply_text(f"@{reg_user_name}, ты уже участник этой клоунады")
+        update.message.reply_text(f"@{reg_user_name}, ты уже участник этой клоунады", quote=False)
         return
     # set user id and username
     r.sadd(JERKS_REG_SET, reg_user_id)
     r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
-    update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} придурками")
+    update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} придурками", quote=False)
 
 
 def jerk_of_the_day(update: Update, context):
     if (not in_whitelist(update)):
         return
-    logger.info('JERK OF THE DAY')
+    logger.info('[jerk_of_the_day]')
     # r.hdel(JERKS_META, 'roll_time')
 
     last_roll = r.hget(JERKS_META, 'roll_time')
@@ -234,7 +234,7 @@ def jerk_of_the_day(update: Update, context):
             tomorrow = cur_datetime + timedelta(days=1)
             time_to_next = datetime.combine(tomorrow, time.min) - cur_datetime
             time_to_next_h, time_to_next_m = time_to_next.seconds // 3600, (time_to_next.seconds // 60) % 60
-            update.message.reply_text(f"Сегоднящний придурок для: *{cur_jerk_username}*.\n"
+            update.message.reply_text(f"Сегодняшний придурок дня: *{cur_jerk_username}*.\n"
                                       f"Следующий запуск будет доступен через: "
                                       f"{time_to_next_h} ч. и {time_to_next_m} м.",
                                       quote=False, parse_mode=ParseMode.MARKDOWN)
@@ -252,7 +252,7 @@ def jerk_of_the_day(update: Update, context):
     update.message.reply_text("Выбираю долбаеба на сегодня", quote=False)
     sleep(1)
     update.message.reply_text(f"А вот и придурок - @{winner_username}", quote=False)
-    logger.info(f'WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
+    logger.info(f'  WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
     return
 
 
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("opinion", opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
-    u.dispatcher.add_handler(CommandHandler("reg", jerkReg))
+    u.dispatcher.add_handler(CommandHandler("reg", jerk_reg))
     u.dispatcher.add_handler(CommandHandler("jerk", jerk_of_the_day))
     u.dispatcher.add_handler(CommandHandler("del", delDict))
     u.dispatcher.add_handler(CommandHandler("again", again))

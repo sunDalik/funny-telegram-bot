@@ -18,6 +18,8 @@ MAX_ITERS = 999_999
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(punctuation)))
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|s)$", re.IGNORECASE)
 
+again_function = None
+
 def in_whitelist(update: Update) -> bool:
     if (update.message.chat_id not in secrets_chat_ids):
         print(f"Blacklisted chat id: {update.message.chat_id}")
@@ -104,6 +106,8 @@ def explain(update: Update, context):
         return
     print("Explain")
     print(update.message.text)
+    global again_function
+    again_function = lambda: explain(update, context)
     match = re.match(r'/explain\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
@@ -138,6 +142,8 @@ def opinion(update: Update, context):
          return
     print("Opinion")
     print(update.message.text)
+    global again_function
+    again_function = lambda: opinion(update, context)
     match = re.match(r'/opinion\s+(.+)', update.message.text)
     if (match == None):
         update.message.reply_text("О чем ты хотел узнать мое мнение?")
@@ -169,8 +175,19 @@ def getAll(update: Update, context):
     update.message.reply_text(utter_message + response, quote=False)
 
 
-def error(update, context):
+def error(update: Update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
+
+    
+def again(update: Update, context):
+    if again_function:
+        try:
+            again_function()
+        except:
+            pass
+    else:
+        update.message.reply_text("А что /again? Кажется я все забыл...", quote=False)
+
 
 #TODO log messages that are not commands
 if __name__ == '__main__':
@@ -199,6 +216,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
     u.dispatcher.add_handler(CommandHandler("del", delDict))
+    u.dispatcher.add_handler(CommandHandler("again", again))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     u.dispatcher.add_error_handler(error)

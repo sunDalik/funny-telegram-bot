@@ -73,6 +73,22 @@ def setDict(update: Update, context):
     else:
         update.message.reply_text(f"Set success!", quote=False)
 
+def delDict(update: Update, context):
+    if (not in_whitelist(update)):
+        return
+    print("Del")
+    print(update.message.text)
+    match = re.match(r'/del\s+([\S]+)', update.message.text)
+    if (match == None):
+        update.message.reply_text("Не понял, а что удалить-то хочешь?")
+        return
+    key = match.group(1)
+    val = r.hdel(DICTIONARY_HASH, key)
+    if (val == 0):
+        update.message.reply_text(f"Чего-чего? \"{key}\"? Я такого не знаю", quote=False)
+    else:
+        update.message.reply_text(f"Ок, я удалил ключ \"{key}\"", quote=False)
+
 
 def sentence_matches_definition(definition: str, sentence: list) -> bool:
     if (len(sentence) != len(definition)):
@@ -145,12 +161,12 @@ def getAll(update: Update, context):
         return
     logger.info("GET ALL")
     keys = r.hgetall(DICTIONARY_HASH)
-    keys_list = [f"`{key.decode('utf-8')}`" for key in keys]
+    keys_list = [key.decode('utf-8') for key in keys]
     keys_list.sort()
     utter_message = 'Так вот же все ГЕТЫ:\n\n'
     response = ", ".join(keys_list)
     logger.info(utter_message + response)
-    update.message.reply_text(utter_message + response, quote=False, parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text(utter_message + response, quote=False)
 
 
 def error(update, context):
@@ -182,6 +198,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("opinion", opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
+    u.dispatcher.add_handler(CommandHandler("del", delDict))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     u.dispatcher.add_error_handler(error)

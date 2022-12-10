@@ -26,10 +26,10 @@ def in_whitelist(update: Update) -> bool:
     return True
 
 def ping(update: Update, context):
-    update.message.reply_text("meow", quote=True)
+    update.message.reply_text("Понг!", quote=True)
 
 def test(update: Update, context):
-    update.message.reply_text("Looking cool joker!")
+    update.message.reply_text("Looking cool joker!", quote=False)
 
 def contribute(update: Update, context):
     update.message.reply_text("https://github.com/sunDalik/funny-telegram-bot", quote=False)

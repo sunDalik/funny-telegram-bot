@@ -31,6 +31,9 @@ def ping(update: Update, context):
 def test(update: Update, context):
     update.message.reply_text("Looking cool joker!")
 
+def contribute(update: Update, context):
+    update.message.reply_text("https://github.com/sunDalik/funny-telegram-bot")
+
 def getDict(update: Update, context):
     if (not in_whitelist(update)):
          return
@@ -158,6 +161,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("explain", explain))
     u.dispatcher.add_handler(CommandHandler("talk", talk))
     u.dispatcher.add_handler(CommandHandler("opinion", opinion))
+    u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     u.dispatcher.add_error_handler(error)

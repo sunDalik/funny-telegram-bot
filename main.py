@@ -134,6 +134,17 @@ def opinion(update: Update, context):
             return
     update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)
 
+
+def getAll(update: Update, context):
+    if (not in_whitelist(update)):
+        return
+    logger.info("GET ALL")
+    keys = r.hgetall(DICTIONARY_HASH)
+    response = ", ".join([key.decode('utf-8') for key in keys])
+    logger.info(response)
+    update.message.reply_text(response)
+
+
 def error(update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
@@ -162,7 +173,8 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("talk", talk))
     u.dispatcher.add_handler(CommandHandler("opinion", opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
-    
+    u.dispatcher.add_handler(CommandHandler("getall", getAll))
+
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     u.dispatcher.add_error_handler(error)
 

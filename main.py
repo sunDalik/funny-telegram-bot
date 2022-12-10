@@ -44,7 +44,7 @@ def getDict(update: Update, context):
         return
     print("Get")
     print(update.message.text)
-    match = re.match(r'/get\s+([^\s]+)', update.message.text)
+    match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Ты чего хочешь-то?", quote=True)
         return
@@ -61,7 +61,7 @@ def setDict(update: Update, context):
         return
     print("Set")
     print(update.message.text)
-    match = re.match(r'/set\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
+    match = re.match(r'/[\S]+\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
     if (match == None):
         print('match none')
         update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
@@ -81,7 +81,7 @@ def delDict(update: Update, context):
         return
     print("Del")
     print(update.message.text)
-    match = re.match(r'/del\s+([\S]+)', update.message.text)
+    match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Не понял, а что удалить-то хочешь?")
         return
@@ -107,7 +107,7 @@ def explain(update: Update, context):
         return
     print("Explain")
     print(update.message.text)
-    match = re.match(r'/explain\s+([\S]+)', update.message.text)
+    match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Что тебе объяснить?", quote=True)
         return
@@ -143,7 +143,7 @@ def opinion(update: Update, context):
          return
     print("Opinion")
     print(update.message.text)
-    match = re.match(r'/opinion\s+(.+)', update.message.text)
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
         update.message.reply_text("О чем ты хотел узнать мое мнение?", quote=True)
         return
@@ -167,7 +167,7 @@ def getAll(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info("GET ALL")
-    match = re.match(r'/getall\s+([^\s]+)', update.message.text)
+    match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
     must_start_with = ""
     if match:
         must_start_with += match.group(1)
@@ -219,7 +219,6 @@ if __name__ == '__main__':
 
     for message in r.lrange(RECEIVED_MESSAGES_LIST, 0, -1):
         message = message.decode("utf-8")
-        print(message)
         MESSAGES.append(message)
 
     logger.info("Setting up telegram bot")

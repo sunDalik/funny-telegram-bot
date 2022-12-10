@@ -36,7 +36,7 @@ def getDict(update: Update, context):
          return
     print("Get")
     print(update.message.text)
-    match = re.match(r'/get\s+([^\s]+)', update.message.text)
+    match = re.match(r'/get\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
         return
@@ -52,7 +52,7 @@ def setDict(update: Update, context):
          return
     print("Set")
     print(update.message.text)
-    match = re.match(r'/set\s+([^\s]+)\s+(.+)', update.message.text, re.DOTALL)
+    match = re.match(r'/set\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
     if (match == None):
         print('match none')
         update.message.reply_text("match = none")
@@ -80,7 +80,7 @@ def explain(update: Update, context):
          return
     print("Explain")
     print(update.message.text)
-    match = re.match(r'/explain\s+([^\s]+)', update.message.text)
+    match = re.match(r'/explain\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
         return
@@ -114,7 +114,7 @@ def opinion(update: Update, context):
          return
     print("Opinion")
     print(update.message.text)
-    match = re.match(r'/opinion\s+([^\s]+)', update.message.text)
+    match = re.match(r'/opinion\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
         return

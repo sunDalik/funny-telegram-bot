@@ -13,8 +13,6 @@ if __name__ == '__main__':
     u = Updater(secrets_bot_token, use_context=True)
     print(f"Enter a message that will be sent to chat {sys.argv[1]}. Press Ctrl+D to send.")
     
-    message = ""
-    for line in sys.stdin:
-        message += line
+    message = sys.stdin.read()
     if (message != ""):
         u.bot.send_message(chat_id=sys.argv[1], text=message)

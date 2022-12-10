@@ -1,5 +1,9 @@
+from datetime import datetime
+from datetime import timedelta
+from datetime import time
+
 from _secrets import secrets_bot_token, secrets_chat_ids
-import logging 
+import logging
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters
 import redis
@@ -13,10 +17,15 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 DICTIONARY_HASH = 'dictionary'
+JERKS_REG_SET = 'jerks_reg'
+USER_ID_TO_NAME = 'users'
+JERKS = 'jerks'
+JERKS_META = 'jerks_meta'
 MESSAGES = []
 MAX_ITERS = 999_999
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(punctuation)))
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|s)$", re.IGNORECASE)
+
 
 def in_whitelist(update: Update) -> bool:
     if (update.message.chat_id not in secrets_chat_ids):
@@ -30,20 +39,20 @@ def ping(update: Update, context):
     update.message.reply_text("Понг!", quote=True)
 
 
-
-
 def test(update: Update, context):
     update.message.reply_text("Looking cool joker!", quote=False)
 
+
 def contribute(update: Update, context):
     update.message.reply_text("https://github.com/sunDalik/funny-telegram-bot", quote=False)
+
 
 def getDict(update: Update, context):
     if (not in_whitelist(update)):
         return
     print("Get")
     print(update.message.text)
-    match = re.match(r'/get\s+([^\s]+)', update.message.text)
+    match = re.match(r'/get\s+(\S+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
         return
@@ -111,17 +120,19 @@ def explain(update: Update, context):
     print(result)
     update.message.reply_text(f"*{definition}*\n{result}", parse_mode=ParseMode.MARKDOWN, quote=False)
 
+
 def talk(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Talk")
     rnd_message = random.choice(MESSAGES)
     print(rnd_message)
     update.message.reply_text(rnd_message)
 
+
 def opinion(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Opinion")
     print(update.message.text)
     match = re.match(r'/opinion\s+(.+)', update.message.text)
@@ -155,10 +166,76 @@ def getAll(update: Update, context):
     update.message.reply_text(utter_message + response, quote=False, parse_mode=ParseMode.MARKDOWN)
 
 
+def jerkReg(update: Update, context):
+    if not in_whitelist(update):
+        return
+    # set user id to regs
+    logger.info('REG FOR JERK OF THE DAY')
+    reg_user_id = update.message.from_user.id
+    reg_user_name = update.message.from_user.username
+    already_register = r.sismember(JERKS_REG_SET, reg_user_id)
+    count = r.scard(JERKS_REG_SET)
+    if already_register:
+        # rewrite username
+        old_username = r.hget(USER_ID_TO_NAME, reg_user_id).decode('utf-8')
+        if old_username != reg_user_name:
+            r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
+            update.message.reply_text(f"@{reg_user_name}, поменял твой никнейм.")  # change to something funnier
+            return
+        update.message.reply_text(f"@{reg_user_name}, ты уже участник этой клоунады")
+        return
+    # set user id and username
+    r.sadd(JERKS_REG_SET, reg_user_id)
+    r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
+    update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} придурками")
+
+
+def jerk_of_the_day(update: Update, context):
+    if (not in_whitelist(update)):
+        return
+    logger.info('JERK OF THE DAY')
+    # r.hdel(JERKS_META, 'roll_time')
+
+    last_roll = r.hget(JERKS_META, 'roll_time')
+
+    datetime_format = '%Y-%m-%d %H:%M:%S'
+    cur_datetime = datetime.now()
+    cur_datetime_str = cur_datetime.strftime(datetime_format)
+
+    if last_roll:
+        last_roll_dt = datetime.strptime(last_roll.decode('utf-8'), datetime_format)
+        is_same_day = cur_datetime.year == last_roll_dt.year and cur_datetime.month == last_roll_dt.month \
+                      and cur_datetime.day == last_roll_dt.day
+        if is_same_day:
+            cur_jerk_id = r.hget(JERKS_META, 'last_jerk')
+            cur_jerk_username = r.hget(USER_ID_TO_NAME, cur_jerk_id).decode('utf-8')
+            tomorrow = cur_datetime + timedelta(days=1)
+            time_to_next = datetime.combine(tomorrow, time.min) - cur_datetime
+            time_to_next_h, time_to_next_m = time_to_next.seconds // 3600, (time_to_next.seconds // 60) % 60
+            update.message.reply_text(f"Сегоднящний придурок для: *{cur_jerk_username}*.\n"
+                                      f"Следующий запуск будет доступен через: "
+                                      f"{time_to_next_h} ч. и {time_to_next_m} м.",
+                                      quote=False, parse_mode=ParseMode.MARKDOWN)
+        return
+    players = r.smembers(JERKS_REG_SET)
+    pl = [player.decode('utf-8') for player in players]
+    winner_id = random.choice(pl)
+    winner_username = r.hget(USER_ID_TO_NAME, winner_id).decode('utf-8')
+    r.hset(JERKS_META, 'last_jerk', winner_id)
+    r.hset(JERKS_META, 'roll_time', cur_datetime_str)
+
+    update.message.reply_text("Выбираю долбаеба на сегодня", quote=False)
+    update.message.reply_text(f"А вот и придурок - @{winner_username}", quote=False)
+    logger.info(f'WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
+    return
+
+
 def error(update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
+    # logger.warning('Error "%s"', context.error)
 
-#TODO log messages that are not commands
+
+# TODO log messages that are not commands
 if __name__ == '__main__':
     logger.info("Initializing Redis")
     r = redis.Redis(host='localhost', port=6379, db=1)
@@ -184,6 +261,8 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("opinion", opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
+    u.dispatcher.add_handler(CommandHandler("reg", jerkReg))
+    u.dispatcher.add_handler(CommandHandler("jerk", jerk_of_the_day))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     u.dispatcher.add_error_handler(error)

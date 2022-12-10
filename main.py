@@ -11,6 +11,7 @@ import re
 import json
 import random
 from string import punctuation
+from time import sleep
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -237,23 +238,39 @@ def jerk_of_the_day(update: Update, context):
                                       f"Следующий запуск будет доступен через: "
                                       f"{time_to_next_h} ч. и {time_to_next_m} м.",
                                       quote=False, parse_mode=ParseMode.MARKDOWN)
-        return
+            return
     players = r.smembers(JERKS_REG_SET)
     pl = [player.decode('utf-8') for player in players]
+    if (len(pl) == 0):
+        update.message.reply_text("А че вы роллить собрались? Никто не зарегистрировался", quote=True)
     winner_id = random.choice(pl)
     winner_username = r.hget(USER_ID_TO_NAME, winner_id).decode('utf-8')
     r.hset(JERKS_META, 'last_jerk', winner_id)
     r.hset(JERKS_META, 'roll_time', cur_datetime_str)
+    r.hincrby(JERKS, winner_id, 1)
 
     update.message.reply_text("Выбираю долбаеба на сегодня", quote=False)
+    sleep(1)
     update.message.reply_text(f"А вот и придурок - @{winner_username}", quote=False)
     logger.info(f'WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
     return
 
 
+def get_jerk_stats(update: Update, context):
+    jerks_dict = {}
+    for key in r.hgetall(JERKS):
+        winner_username = r.hget(USER_ID_TO_NAME, key).decode('utf-8')
+        jerks_dict[winner_username] = r.hget(JERKS, key)
+    message = "Вот статистика придурков:\n"
+    i = 1
+    for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
+        message += f"{i}. {k} - {v.decode('utf-8')}"
+        i += 1
+    update.message.reply_text(f"{message}", quote=False)
+
+
 def error(update: Update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
-    # logger.warning('Error "%s"', context.error)
 
 
 def again(update: Update, context):
@@ -305,6 +322,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("jerk", jerk_of_the_day))
     u.dispatcher.add_handler(CommandHandler("del", delDict))
     u.dispatcher.add_handler(CommandHandler("again", again))
+    u.dispatcher.add_handler(CommandHandler("jerkstats", get_jerk_stats))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
 

@@ -145,9 +145,12 @@ def getAll(update: Update, context):
         return
     logger.info("GET ALL")
     keys = r.hgetall(DICTIONARY_HASH)
-    response = ", ".join([key.decode('utf-8') for key in keys])
-    logger.info(response)
-    update.message.reply_text(response, quote=False)
+    keys_list = [f"`{key.decode('utf-8')}`" for key in keys]
+    keys_list.sort()
+    utter_message = 'Так вот же все ГЕТЫ:\n\n'
+    response = ", ".join(keys_list)
+    logger.info(utter_message + response)
+    update.message.reply_text(utter_message + response, quote=False, parse_mode=ParseMode.MARKDOWN)
 
 
 def error(update, context):

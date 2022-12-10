@@ -120,13 +120,14 @@ def opinion(update: Update, context):
         return
     user_input = match.group(1)
     things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
-    things = [ENDINGS_REGEX.sub("", thing) for thing in things]
+    things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
     print(things)
     shuffled_messages = MESSAGES.copy()
     random.shuffle(shuffled_messages)
     for rnd_message in shuffled_messages:
-        if (all(thing in rnd_message for thing in things)):
-            update.message.reply_text(rnd_message, quote=True)
+        lower_message = rnd_message.lower()
+        if (all(thing in lower_message for thing in things)):
+            update.message.reply_text(rnd_message, quote=False)
             return
     update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)
 

@@ -1,6 +1,6 @@
 from _secrets import secrets_bot_token, secrets_chat_ids
-import logging 
-from telegram import ParseMode, Update
+import logging
+from telegram import ForceReply, Update
 from telegram.ext import Updater, CommandHandler, Filters
 import redis
 import re
@@ -16,7 +16,8 @@ DICTIONARY_HASH = 'dictionary'
 MESSAGES = []
 MAX_ITERS = 999_999
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(punctuation)))
-ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|s)$", re.IGNORECASE)
+ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у)$")
+
 
 def in_whitelist(update: Update) -> bool:
     if (update.message.chat_id not in secrets_chat_ids):
@@ -25,18 +26,21 @@ def in_whitelist(update: Update) -> bool:
         return False
     return True
 
+
 def ping(update: Update, context):
     update.message.reply_text("meow", quote=True)
+
 
 def test(update: Update, context):
     update.message.reply_text("Looking cool joker!")
 
+
 def getDict(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Get")
     print(update.message.text)
-    match = re.match(r'/get\s+([\S]+)', update.message.text)
+    match = re.match(r'/get\s+([^\s]+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
         return
@@ -47,17 +51,18 @@ def getDict(update: Update, context):
         return
     update.message.reply_text(val.decode("utf-8"), quote=False)
 
+
 def setDict(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Set")
     print(update.message.text)
-    match = re.match(r'/set\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
+    match = re.match(r'/set\s+(\S+)\s+(.+)', update.message.text, re.DOTALL)
     if (match == None):
         print('match none')
         update.message.reply_text("match = none")
         return
-        
+
     key = match.group(1)
     val = match.group(2)
     old_value = r.hget(DICTIONARY_HASH, key)
@@ -67,6 +72,7 @@ def setDict(update: Update, context):
     else:
         update.message.reply_text(f"Set success!", quote=False)
 
+
 def sentence_matches_definition(definition: str, sentence: list) -> bool:
     if (len(sentence) != len(definition)):
         return False
@@ -75,66 +81,78 @@ def sentence_matches_definition(definition: str, sentence: list) -> bool:
             return False
     return True
 
+
 def explain(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Explain")
     print(update.message.text)
-    match = re.match(r'/explain\s+([\S]+)', update.message.text)
+    match = re.match(r'/explain\s+([^\s]+)', update.message.text)
     if (match == None):
         update.message.reply_text("no key provided")
         return
     definition = match.group(1)
     print(definition)
     result = None
-    shuffled_messages = MESSAGES.copy()
-    random.shuffle(shuffled_messages)
-    for rnd_message in shuffled_messages:
+    for _ in range(MAX_ITERS):
+        rnd_message = random.choice(MESSAGES)
         words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
         if (sentence_matches_definition(definition, words)):
             result = rnd_message
             break
 
     if (result == None):
-        update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
+        print('damn...')
+        update.message.reply_text("no definition found")
         return
     print(result)
-    update.message.reply_text(f"*{definition}*\n{result}", parse_mode=ParseMode.MARKDOWN, quote=False)
+    update.message.reply_text(result)
+
 
 def talk(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Talk")
     rnd_message = random.choice(MESSAGES)
     print(rnd_message)
     update.message.reply_text(rnd_message)
 
+
 def opinion(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     print("Opinion")
     print(update.message.text)
-    match = re.match(r'/opinion\s+(.+)', update.message.text)
+    match = re.match(r'/opinion\s+([^\s]+)', update.message.text)
     if (match == None):
-        update.message.reply_text("О чем ты хотел узнать мое мнение?")
+        update.message.reply_text("no key provided")
         return
-    user_input = match.group(1)
-    things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
-    things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
-    print(things)
-    shuffled_messages = MESSAGES.copy()
-    random.shuffle(shuffled_messages)
-    for rnd_message in shuffled_messages:
-        lower_message = rnd_message.lower()
-        if (all(thing in lower_message for thing in things)):
-            update.message.reply_text(rnd_message, quote=False)
+    thing = match.group(1)
+    thing = ENDINGS_REGEX.sub("", thing)
+    print(thing)
+    for _ in range(MAX_ITERS):
+        rnd_message = random.choice(MESSAGES)
+        if (thing in rnd_message):
+            update.message.reply_text(rnd_message, quote=True)
             return
-    update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)
+    update.message.reply_text("No thoughts...", quote=True)
+
+
+def getAll(update: Update, context):
+    if (not in_whitelist(update)):
+        return
+    logger.info("GET ALL")
+    keys = r.hgetall(DICTIONARY_HASH)
+    response = ", ".join([key.decode('utf-8') for key in keys])
+    logger.info(response)
+    update.message.reply_text(response)
+
 
 def error(update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
-#TODO log messages that are not commands
+
+# TODO log messages that are not commands
 if __name__ == '__main__':
     logger.info("Initializing Redis")
     r = redis.Redis(host='localhost', port=6379, db=1)
@@ -158,7 +176,8 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("explain", explain))
     u.dispatcher.add_handler(CommandHandler("talk", talk))
     u.dispatcher.add_handler(CommandHandler("opinion", opinion))
-    
+    u.dispatcher.add_handler(CommandHandler("getall", getAll))
+
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     u.dispatcher.add_error_handler(error)
 

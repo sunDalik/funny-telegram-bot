@@ -1,6 +1,6 @@
 from _secrets import secrets_bot_token, secrets_chat_ids
 import logging 
-from telegram import ForceReply, Update
+from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters
 import redis
 import re
@@ -87,19 +87,19 @@ def explain(update: Update, context):
     definition = match.group(1)
     print(definition)
     result = None
-    for _ in range(MAX_ITERS):
-        rnd_message = random.choice(MESSAGES)
+    shuffled_messages = MESSAGES.copy()
+    random.shuffle(shuffled_messages)
+    for rnd_message in shuffled_messages:
         words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
         if (sentence_matches_definition(definition, words)):
             result = rnd_message
             break
 
     if (result == None):
-        print('damn...')
-        update.message.reply_text("no definition found")
+        update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
         return
     print(result)
-    update.message.reply_text(result)
+    update.message.reply_text(f"*{definition}*\n{result}", parse_mode=ParseMode.MARKDOWN, quote=False)
 
 def talk(update: Update, context):
     if (not in_whitelist(update)):

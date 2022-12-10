@@ -1,7 +1,7 @@
 from _secrets import secrets_bot_token, secrets_chat_ids
 import logging 
 from telegram import ParseMode, Update
-from telegram.ext import Updater, CommandHandler, Filters
+from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
 import redis
 import re
 import json
@@ -13,6 +13,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 DICTIONARY_HASH = 'dictionary'
+RECEIVED_MESSAGES_LIST = 'received_messages_list'
 MESSAGES = []
 MAX_ITERS = 999_999
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(punctuation)))
@@ -106,12 +107,12 @@ def explain(update: Update, context):
         return
     print("Explain")
     print(update.message.text)
-    global again_function
-    again_function = lambda: explain(update, context)
     match = re.match(r'/explain\s+([\S]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Что тебе объяснить?", quote=True)
         return
+    global again_function
+    again_function = lambda: explain(update, context)
     definition = match.group(1)
     print(definition)
     result = None
@@ -135,19 +136,19 @@ def talk(update: Update, context):
     print("Talk")
     rnd_message = random.choice(MESSAGES)
     print(rnd_message)
-    update.message.reply_text(rnd_message)
+    update.message.reply_text(rnd_message, quote=False)
 
 def opinion(update: Update, context):
     if (not in_whitelist(update)):
          return
     print("Opinion")
     print(update.message.text)
-    global again_function
-    again_function = lambda: opinion(update, context)
     match = re.match(r'/opinion\s+(.+)', update.message.text)
     if (match == None):
         update.message.reply_text("О чем ты хотел узнать мое мнение?", quote=True)
         return
+    global again_function
+    again_function = lambda: opinion(update, context)
     user_input = match.group(1)
     things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
     things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
@@ -194,8 +195,14 @@ def again(update: Update, context):
     else:
         update.message.reply_text("А что /again? Кажется я все забыл...", quote=False)
 
+def handle_normal_messages(update: Update, context):
+    if (not in_whitelist(update)):
+         return
+    logger.info("Received normal message")
+    logger.info(update.message.text)
+    r.rpush(RECEIVED_MESSAGES_LIST, update.message.text)
+    MESSAGES.append(update.message.text)
 
-#TODO log messages that are not commands
 if __name__ == '__main__':
     logger.info("Initializing Redis")
     r = redis.Redis(host='localhost', port=6379, db=1)
@@ -209,6 +216,11 @@ if __name__ == '__main__':
             if (text != ""):
                 MESSAGES.append(text)
     f.close()
+
+    for message in r.lrange(RECEIVED_MESSAGES_LIST, 0, -1):
+        message = message.decode("utf-8")
+        print(message)
+        MESSAGES.append(message)
 
     logger.info("Setting up telegram bot")
     u = Updater(secrets_bot_token, use_context=True)
@@ -225,6 +237,9 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("again", again))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
+
+    
+    u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_normal_messages))
     u.dispatcher.add_error_handler(error)
 
     logger.info("Polling for updates...")

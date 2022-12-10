@@ -3,6 +3,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from _secrets import secrets_bot_token
+from telegram import ParseMode
 from telegram.ext import Updater
 
 
@@ -15,4 +16,4 @@ if __name__ == '__main__':
     
     message = sys.stdin.read()
     if (message != ""):
-        u.bot.send_message(chat_id=sys.argv[1], text=message)
+        u.bot.send_message(chat_id=sys.argv[1], text=message, parse_mode=ParseMode.MARKDOWN)

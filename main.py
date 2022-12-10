@@ -16,7 +16,7 @@ DICTIONARY_HASH = 'dictionary'
 MESSAGES = []
 MAX_ITERS = 999_999
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(punctuation)))
-ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у)$")
+ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|s)$", re.IGNORECASE)
 
 def in_whitelist(update: Update) -> bool:
     if (update.message.chat_id not in secrets_chat_ids):
@@ -114,19 +114,21 @@ def opinion(update: Update, context):
          return
     print("Opinion")
     print(update.message.text)
-    match = re.match(r'/opinion\s+([\S]+)', update.message.text)
+    match = re.match(r'/opinion\s+(.+)', update.message.text)
     if (match == None):
-        update.message.reply_text("no key provided")
+        update.message.reply_text("О чем ты хотел узнать мое мнение?")
         return
-    thing = match.group(1)
-    thing = ENDINGS_REGEX.sub("", thing)
-    print(thing)
-    for _ in range(MAX_ITERS):
-        rnd_message = random.choice(MESSAGES)
-        if (thing in rnd_message):
+    user_input = match.group(1)
+    things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
+    things = [ENDINGS_REGEX.sub("", thing) for thing in things]
+    print(things)
+    shuffled_messages = MESSAGES.copy()
+    random.shuffle(shuffled_messages)
+    for rnd_message in shuffled_messages:
+        if (all(thing in rnd_message for thing in things)):
             update.message.reply_text(rnd_message, quote=True)
             return
-    update.message.reply_text("No thoughts...", quote=True)
+    update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)
 
 def error(update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)

@@ -31,6 +31,7 @@ def ping(update: Update, context):
 
 
 
+
 def test(update: Update, context):
     update.message.reply_text("Looking cool joker!", quote=False)
 

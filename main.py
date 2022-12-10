@@ -45,12 +45,12 @@ def getDict(update: Update, context):
     print(update.message.text)
     match = re.match(r'/get\s+([^\s]+)', update.message.text)
     if (match == None):
-        update.message.reply_text("no key provided")
+        update.message.reply_text("Ты чего хочешь-то?", quote=True)
         return
     key = match.group(1)
     val = r.hget(DICTIONARY_HASH, key)
     if (val == None):
-        update.message.reply_text("None get")
+        update.message.reply_text("Не помню такого", quote=True)
         return
     update.message.reply_text(val.decode("utf-8"), quote=False)
 
@@ -63,7 +63,7 @@ def setDict(update: Update, context):
     match = re.match(r'/set\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
     if (match == None):
         print('match none')
-        update.message.reply_text("match = none")
+        update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
         return
 
     key = match.group(1)
@@ -71,9 +71,9 @@ def setDict(update: Update, context):
     old_value = r.hget(DICTIONARY_HASH, key)
     r.hset(DICTIONARY_HASH, key, val)
     if (old_value != None):
-        update.message.reply_text(f"Set success! Old value was \"{old_value.decode('utf-8')}\"", quote=False)
+        update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value.decode('utf-8')}\"", quote=False)
     else:
-        update.message.reply_text(f"Set success!", quote=False)
+        update.message.reply_text(f"Запомнил {key}!", quote=False)
 
 def delDict(update: Update, context):
     if (not in_whitelist(update)):
@@ -110,7 +110,7 @@ def explain(update: Update, context):
     again_function = lambda: explain(update, context)
     match = re.match(r'/explain\s+([\S]+)', update.message.text)
     if (match == None):
-        update.message.reply_text("no key provided")
+        update.message.reply_text("Что тебе объяснить?", quote=True)
         return
     definition = match.group(1)
     print(definition)
@@ -146,7 +146,7 @@ def opinion(update: Update, context):
     again_function = lambda: opinion(update, context)
     match = re.match(r'/opinion\s+(.+)', update.message.text)
     if (match == None):
-        update.message.reply_text("О чем ты хотел узнать мое мнение?")
+        update.message.reply_text("О чем ты хотел узнать мое мнение?", quote=True)
         return
     user_input = match.group(1)
     things = [thing for thing in re.split(r'\s', user_input) if thing != ""]

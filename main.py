@@ -32,7 +32,7 @@ def test(update: Update, context):
     update.message.reply_text("Looking cool joker!")
 
 def contribute(update: Update, context):
-    update.message.reply_text("https://github.com/sunDalik/funny-telegram-bot")
+    update.message.reply_text("https://github.com/sunDalik/funny-telegram-bot", quote=False)
 
 def getDict(update: Update, context):
     if (not in_whitelist(update)):
@@ -142,7 +142,7 @@ def getAll(update: Update, context):
     keys = r.hgetall(DICTIONARY_HASH)
     response = ", ".join([key.decode('utf-8') for key in keys])
     logger.info(response)
-    update.message.reply_text(response)
+    update.message.reply_text(response, quote=False)
 
 
 def error(update, context):

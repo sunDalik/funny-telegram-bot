@@ -110,7 +110,15 @@ def sentence_matches_definition(definition: str, sentence: list) -> bool:
     return True
 
 
-def explain(update: Update, context):
+# Returns index of word that starts the definition
+def deep_sentence_matches_definition(definition: str, sentence: list) -> int:
+    for i in range(0, len(sentence) - len(definition) + 1):
+        if (sentence_matches_definition(definition, sentence[i:i + len(definition)])):
+            return i
+    return -1
+
+
+def explain(update: Update, context, beta=False):
     if (not in_whitelist(update)):
         return
     logger.info(f"[explain] {update.message.text}")
@@ -119,14 +127,19 @@ def explain(update: Update, context):
         update.message.reply_text("Что тебе объяснить?", quote=True)
         return
     global again_function
-    again_function = lambda: explain(update, context)
+    again_function = lambda: explain(update, context, beta)
     definition = match.group(1)
     result = None
     shuffled_messages = MESSAGES.copy()
     random.shuffle(shuffled_messages)
     for rnd_message in shuffled_messages:
         words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
-        if (sentence_matches_definition(definition, words)):
+        if (beta):
+            starting_index = deep_sentence_matches_definition(definition, words)
+            if (starting_index >= 0):
+                result = " ".join(words[starting_index: starting_index + len(definition)])
+                break
+        elif (sentence_matches_definition(definition, words)):
             result = rnd_message
             break
 
@@ -313,9 +326,10 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("ping", ping))
     u.dispatcher.add_handler(CommandHandler("get", getDict))
     u.dispatcher.add_handler(CommandHandler("set", setDict))
-    u.dispatcher.add_handler(CommandHandler("explain", explain))
+    u.dispatcher.add_handler(CommandHandler(("explain", "e"), lambda update, context: explain(update, context, False)))
+    u.dispatcher.add_handler(CommandHandler("explainbeta", lambda update, context: explain(update, context, True)))
     u.dispatcher.add_handler(CommandHandler("talk", talk))
-    u.dispatcher.add_handler(CommandHandler("opinion", opinion))
+    u.dispatcher.add_handler(CommandHandler(("opinion", "o"), opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
     u.dispatcher.add_handler(CommandHandler("reg", jerk_reg))

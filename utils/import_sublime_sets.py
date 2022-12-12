@@ -8,6 +8,10 @@ import re
 DICTIONARY_HASH = 'dictionary'
 
 if __name__ == '__main__':
+    inp = input("Are you sure? This is a potentially dangerous operation that can overwrite your database entries. Type \"Yes\" to continue\n")
+    if (inp != "Yes"):
+        print("Operation aborted")
+
     JSON_PATH = os.path.join(os.path.dirname(__file__), "../_secrets/messages.json") 
 
     r = redis.Redis(host='localhost', port=6379, db=1)

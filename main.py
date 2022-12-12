@@ -11,6 +11,7 @@ import re
 import json
 import random
 from time import sleep
+import markovify
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -29,6 +30,7 @@ PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 
 again_function = None
+markovify_model = None
 
 
 def in_whitelist(update: Update) -> bool:
@@ -53,6 +55,24 @@ def ping(update: Update, context):
 
 def test(update: Update, context):
     update.message.reply_text("Looking cool joker!", quote=False)
+
+
+def shitpost(update: Update, context):
+    logger.info(f"[shitpost] {update.message.text}")
+    if markovify_model == None:
+        update.message.reply_text("Прости, мне сегодня не до щитпостов...", quote=True)
+        return
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
+    if (match == None):
+        text = markovify_model.make_short_sentence(140)
+        update.message.reply_text(text, quote=False)
+    else:
+        start = match.group(1)
+        try:
+            text = markovify_model.make_sentence_with_start(start, strict=False, max_words=15)
+            update.message.reply_text(text, quote=False)
+        except:
+            update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)
 
 
 def dice(update: Update, context):
@@ -375,6 +395,9 @@ if __name__ == '__main__':
         message = message.decode("utf-8")
         MESSAGES.append(message)
 
+    logger.info("Loading shitpost model...")
+    markovify_model = markovify.Text("\n".join(MESSAGES))
+
     logger.info("Setting up telegram bot")
     u = Updater(secrets_bot_token, use_context=True)
 
@@ -396,6 +419,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("jerkall", get_jerk_regs))
     u.dispatcher.add_handler(CommandHandler("dice", dice))
     u.dispatcher.add_handler(CommandHandler("slot", casino))
+    u.dispatcher.add_handler(CommandHandler("shitpost", shitpost))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
 

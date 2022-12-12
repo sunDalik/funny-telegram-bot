@@ -54,10 +54,14 @@ def ping(update: Update, context):
 
 
 def test(update: Update, context):
+    if (not in_whitelist(update)):
+        return
     update.message.reply_text("Looking cool joker!", quote=False)
 
 
 def shitpost(update: Update, context):
+    if (not in_whitelist(update)):
+        return
     logger.info(f"[shitpost] {update.message.text}")
     if markovify_model == None:
         update.message.reply_text("Прости, мне сегодня не до щитпостов...", quote=True)
@@ -188,7 +192,7 @@ def explain(update: Update, context, beta=False):
 
 def talk(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     logger.info("[talk]")
     rnd_message = random.choice(MESSAGES)
     logger.info(f"  Result: {rnd_message}")
@@ -197,7 +201,7 @@ def talk(update: Update, context):
 
 def opinion(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     logger.info(f"[opinion] {update.message.text}")
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
@@ -332,6 +336,8 @@ def jerk_of_the_day(update: Update, context):
 
 
 def get_jerk_stats(update: Update, context):
+    if (not in_whitelist(update)):
+        return
     jerks_dict = {}
     for key in r.hgetall(JERKS):
         winner_username = get_username_by_id(key)
@@ -345,6 +351,8 @@ def get_jerk_stats(update: Update, context):
 
 
 def get_jerk_regs(update: Update, context):
+    if (not in_whitelist(update)):
+        return
     players = [player.decode('utf-8') for player in r.smembers(JERKS_REG_SET)]
     if (len(players) == 0):
         update.message.reply_text(f"Никто не зарегистрировался на {get_daily_jerk_word()[1]} дня...", quote=False)    
@@ -362,6 +370,8 @@ def error(update: Update, context):
 
 
 def again(update: Update, context):
+    if (not in_whitelist(update)):
+        return
     if again_function:
         try:
             again_function()
@@ -372,7 +382,7 @@ def again(update: Update, context):
 
 def handle_normal_messages(update: Update, context):
     if (not in_whitelist(update)):
-         return
+        return
     logger.info(f"[msg] {update.message.text}")
     r.rpush(RECEIVED_MESSAGES_LIST, update.message.text)
     MESSAGES.append(update.message.text)

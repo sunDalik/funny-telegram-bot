@@ -2,7 +2,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import time
 
-from _secrets import secrets_bot_token, secrets_chat_ids
+from _secrets import secrets_bot_token, secrets_chat_ids, jerk_aliases
 import logging
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
@@ -39,12 +39,24 @@ def in_whitelist(update: Update) -> bool:
     return True
 
 
+def get_daily_jerk_word() -> list:
+    curr_date = datetime.now()
+    seed = int(str(curr_date.year % 100) + str(curr_date.month) + str(curr_date.day))
+    my_random = random.Random()
+    my_random.seed(seed)
+    return my_random.choice(jerk_aliases)
+
+
 def ping(update: Update, context):
     update.message.reply_text("Понг!", quote=True)
 
 
 def test(update: Update, context):
     update.message.reply_text("Looking cool joker!", quote=False)
+
+
+def dice(update: Update, context):
+    update.message.reply_dice()
 
 
 def contribute(update: Update, context):
@@ -234,7 +246,7 @@ def jerk_reg(update: Update, context):
     # set user id and username
     r.sadd(JERKS_REG_SET, reg_user_id)
     r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
-    update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} придурками", quote=False)
+    update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} другими {get_daily_jerk_word()[3]}", quote=False)
 
 
 def jerk_unreg(update: Update, context):
@@ -273,7 +285,7 @@ def jerk_of_the_day(update: Update, context):
             tomorrow = cur_datetime + timedelta(days=1)
             time_to_next = datetime.combine(tomorrow, time.min) - cur_datetime
             time_to_next_h, time_to_next_m = time_to_next.seconds // 3600, (time_to_next.seconds // 60) % 60
-            update.message.reply_text(f"Сегодняшний придурок дня: *{cur_jerk_username}*.\n"
+            update.message.reply_text(f"Сегодняшний {get_daily_jerk_word()[0]} дня: *{cur_jerk_username}*.\n"
                                       f"Следующий запуск будет доступен через: "
                                       f"{time_to_next_h} ч. и {time_to_next_m} м.",
                                       quote=False, parse_mode=ParseMode.MARKDOWN)
@@ -288,9 +300,9 @@ def jerk_of_the_day(update: Update, context):
     r.hset(JERKS_META, 'roll_time', cur_datetime_str)
     r.hincrby(JERKS, winner_id, 1)
 
-    update.message.reply_text("Выбираю долбаеба на сегодня", quote=False)
+    update.message.reply_text(f"Выбираю {get_daily_jerk_word()[1]} на сегодня", quote=False)
     sleep(1)
-    update.message.reply_text(f"А вот и придурок - @{winner_username}", quote=False)
+    update.message.reply_text(f"А вот и победитель - @{winner_username}!", quote=False)
     logger.info(f'  WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
     return
 
@@ -300,7 +312,7 @@ def get_jerk_stats(update: Update, context):
     for key in r.hgetall(JERKS):
         winner_username = get_username_by_id(key)
         jerks_dict[winner_username] = r.hget(JERKS, key)
-    message = "Вот статистика придурков:\n"
+    message = f"Вот статистика {get_daily_jerk_word()[2]}:\n"
     i = 1
     for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
         message += f"{i}. {k} - {v.decode('utf-8')}\n"
@@ -311,7 +323,7 @@ def get_jerk_stats(update: Update, context):
 def get_jerk_regs(update: Update, context):
     players = [player.decode('utf-8') for player in r.smembers(JERKS_REG_SET)]
     if (len(players) == 0):
-        update.message.reply_text(f"Никто не зарегистрировался на придурка дня...", quote=False)    
+        update.message.reply_text(f"Никто не зарегистрировался на {get_daily_jerk_word()[1]} дня...", quote=False)    
         return
     message = "Вот все известные мне персонажи:\n"
     i = 1
@@ -378,6 +390,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler(("again", "a"), again))
     u.dispatcher.add_handler(CommandHandler("jerkstats", get_jerk_stats))
     u.dispatcher.add_handler(CommandHandler("jerkall", get_jerk_regs))
+    u.dispatcher.add_handler(CommandHandler("dice", dice))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
 

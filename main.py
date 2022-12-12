@@ -10,7 +10,6 @@ import redis
 import re
 import json
 import random
-from string import punctuation
 from time import sleep
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
@@ -25,7 +24,8 @@ JERKS_META = 'jerks_meta'
 RECEIVED_MESSAGES_LIST = 'received_messages_list'
 MESSAGES = []
 MAX_ITERS = 999_999
-PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(punctuation)))
+# Don't include apostrophe
+PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 
 again_function = None
@@ -56,7 +56,11 @@ def test(update: Update, context):
 
 
 def dice(update: Update, context):
-    update.message.reply_dice()
+    update.message.reply_dice(quote=False)
+
+    
+def casino(update: Update, context):
+    update.message.reply_dice(emoji="🎰", quote=False)
 
 
 def contribute(update: Update, context):
@@ -391,6 +395,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("jerkstats", get_jerk_stats))
     u.dispatcher.add_handler(CommandHandler("jerkall", get_jerk_regs))
     u.dispatcher.add_handler(CommandHandler("dice", dice))
+    u.dispatcher.add_handler(CommandHandler("slot", casino))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
 

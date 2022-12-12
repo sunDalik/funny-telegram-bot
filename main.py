@@ -196,10 +196,22 @@ def getAll(update: Update, context):
     if must_start_with != "":
         keys_list = [key for key in keys_list if key.lower().startswith(must_start_with.lower())]
     keys_list.sort()
+    if (len(keys_list) == 0):
+        if (must_start_with != ""):
+            update.message.reply_text(f"Не нашел никаких гетов, начинающихся на \"{must_start_with}\" >.>", quote=False)
+            return
+        else:
+            update.message.reply_text(f"Я пока не знаю никаких гетов... Но ты можешь их добавить командой /set!", quote=False)
+            return
     header = 'Так вот же все ГЕТЫ:\n\n' if must_start_with == "" else f'Вот все ГЕТЫ, начинающиеся с \"{must_start_with}\":\n\n'
     response = ", ".join(keys_list)
     update.message.reply_text(header + response, quote=False)
 
+
+def get_username_by_id(id) -> str:
+    username = r.hget(USER_ID_TO_NAME, id)
+    username = username.decode('utf-8') if username else str(id)
+    return username
 
 def jerk_reg(update: Update, context):
     if not in_whitelist(update):
@@ -212,7 +224,7 @@ def jerk_reg(update: Update, context):
     count = r.scard(JERKS_REG_SET)
     if already_register:
         # rewrite username
-        old_username = r.hget(USER_ID_TO_NAME, reg_user_id).decode('utf-8')
+        old_username = get_username_by_id(reg_user_id)
         if old_username != reg_user_name:
             r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
             update.message.reply_text(f"@{reg_user_name}, поменял твой никнейм.", quote=False)  # change to something funnier
@@ -223,6 +235,20 @@ def jerk_reg(update: Update, context):
     r.sadd(JERKS_REG_SET, reg_user_id)
     r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
     update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} придурками", quote=False)
+
+
+def jerk_unreg(update: Update, context):
+    if not in_whitelist(update):
+        return
+    logger.info('[jerk_unreg]')
+    reg_user_id = update.message.from_user.id
+    reg_user_name = update.message.from_user.username
+    already_register = r.sismember(JERKS_REG_SET, reg_user_id)
+    if not already_register:
+        update.message.reply_text(f"@{reg_user_name}, ты и так не регистрировался", quote=False)
+        return
+    r.srem(JERKS_REG_SET, reg_user_id)
+    update.message.reply_text(f"Правильное решение, @{reg_user_name}. Вычеркнул тебя из списка", quote=False)
 
 
 def jerk_of_the_day(update: Update, context):
@@ -243,7 +269,7 @@ def jerk_of_the_day(update: Update, context):
                       and cur_datetime.day == last_roll_dt.day
         if is_same_day:
             cur_jerk_id = r.hget(JERKS_META, 'last_jerk')
-            cur_jerk_username = r.hget(USER_ID_TO_NAME, cur_jerk_id).decode('utf-8')
+            cur_jerk_username = get_username_by_id(cur_jerk_id)
             tomorrow = cur_datetime + timedelta(days=1)
             time_to_next = datetime.combine(tomorrow, time.min) - cur_datetime
             time_to_next_h, time_to_next_m = time_to_next.seconds // 3600, (time_to_next.seconds // 60) % 60
@@ -257,7 +283,7 @@ def jerk_of_the_day(update: Update, context):
     if (len(pl) == 0):
         update.message.reply_text("А че вы роллить собрались? Никто не зарегистрировался", quote=True)
     winner_id = random.choice(pl)
-    winner_username = r.hget(USER_ID_TO_NAME, winner_id).decode('utf-8')
+    winner_username = get_username_by_id(winner_id)
     r.hset(JERKS_META, 'last_jerk', winner_id)
     r.hset(JERKS_META, 'roll_time', cur_datetime_str)
     r.hincrby(JERKS, winner_id, 1)
@@ -272,12 +298,25 @@ def jerk_of_the_day(update: Update, context):
 def get_jerk_stats(update: Update, context):
     jerks_dict = {}
     for key in r.hgetall(JERKS):
-        winner_username = r.hget(USER_ID_TO_NAME, key).decode('utf-8')
+        winner_username = get_username_by_id(key)
         jerks_dict[winner_username] = r.hget(JERKS, key)
     message = "Вот статистика придурков:\n"
     i = 1
     for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
-        message += f"{i}. {k} - {v.decode('utf-8')}"
+        message += f"{i}. {k} - {v.decode('utf-8')}\n"
+        i += 1
+    update.message.reply_text(f"{message}", quote=False)
+
+
+def get_jerk_regs(update: Update, context):
+    players = [player.decode('utf-8') for player in r.smembers(JERKS_REG_SET)]
+    if (len(players) == 0):
+        update.message.reply_text(f"Никто не зарегистрировался на придурка дня...", quote=False)    
+        return
+    message = "Вот все известные мне персонажи:\n"
+    i = 1
+    for player in players:
+        message += f"{i}. {get_username_by_id(player)}\n"
         i += 1
     update.message.reply_text(f"{message}", quote=False)
 
@@ -327,16 +366,18 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("get", getDict))
     u.dispatcher.add_handler(CommandHandler("set", setDict))
     u.dispatcher.add_handler(CommandHandler(("explain", "e"), lambda update, context: explain(update, context, False)))
-    u.dispatcher.add_handler(CommandHandler("explainbeta", lambda update, context: explain(update, context, True)))
+    u.dispatcher.add_handler(CommandHandler(("explainbeta", "eb"), lambda update, context: explain(update, context, True)))
     u.dispatcher.add_handler(CommandHandler("talk", talk))
     u.dispatcher.add_handler(CommandHandler(("opinion", "o"), opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
     u.dispatcher.add_handler(CommandHandler("reg", jerk_reg))
+    u.dispatcher.add_handler(CommandHandler("unreg", jerk_unreg))
     u.dispatcher.add_handler(CommandHandler("jerk", jerk_of_the_day))
     u.dispatcher.add_handler(CommandHandler("del", delDict))
-    u.dispatcher.add_handler(CommandHandler("again", again))
+    u.dispatcher.add_handler(CommandHandler(("again", "a"), again))
     u.dispatcher.add_handler(CommandHandler("jerkstats", get_jerk_stats))
+    u.dispatcher.add_handler(CommandHandler("jerkall", get_jerk_regs))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
 

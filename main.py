@@ -75,6 +75,8 @@ def shitpost(update: Update, context):
         try:
             start = match.group(1)
             text = markovify_model.make_sentence_with_start(start, strict=False, max_words=20, tries=15)
+            global again_function
+            again_function = lambda: shitpost(update, context)
             update.message.reply_text(text, quote=False)
         except:
             update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)

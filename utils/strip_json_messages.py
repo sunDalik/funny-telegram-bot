@@ -1,8 +1,13 @@
 import sys
 import os
 import json
+import argparse
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--debug", help = "Output JSON with identation", action="store_true")
+    args = parser.parse_args()
+ 
     JSON_PATH = os.path.join(os.path.dirname(__file__), "../_secrets/messages.json") 
     old_size = os.path.getsize(JSON_PATH)
 
@@ -15,7 +20,7 @@ if __name__ == '__main__':
             if ("text_entities" in message and len(message.get("text_entities")) > 0):
                 messages.append(message)
         
-        print(str(len(messages)))
+        print(f"messages.json contains {len(messages)} text messages")
         # Remove redudndant keys from messages
         for message in messages:
             message.pop("id", None)
@@ -39,7 +44,8 @@ if __name__ == '__main__':
         data["messages"] = messages
 
         f.seek(0)
-        json.dump(data, f, indent=None, ensure_ascii=False)
+        indentation = 1 if args.debug else None
+        json.dump(data, f, indent=indentation, ensure_ascii=False)
         f.truncate()
 
     new_size = os.path.getsize(JSON_PATH)

@@ -224,7 +224,9 @@ def opinion(update: Update, context):
     random.shuffle(shuffled_messages)
     for rnd_message in shuffled_messages:
         lower_message = rnd_message.lower()
-        if (all(thing in lower_message for thing in things)):
+        #if (all(thing in lower_message for thing in things)):
+        # Only search for matches at the begining of words
+        if (len(rnd_message) <= 500 and all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things)):
             update.message.reply_text(rnd_message, quote=False)
             return
     update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)

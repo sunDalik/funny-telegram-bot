@@ -187,7 +187,11 @@ def explain(update: Update, context, beta=False):
             break
 
     if (result == None):
-        update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
+        if not beta:
+            logger.info("   Retrying with deep search")
+            explain(update, context, beta=True)
+        else:
+            update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
         return
     logger.info(f"  Result: {result}")
     update.message.reply_text(f"*{definition}*\n{result}", parse_mode=ParseMode.MARKDOWN, quote=False)

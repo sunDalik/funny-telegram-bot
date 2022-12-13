@@ -2,7 +2,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import time
 
-from _secrets import secrets_bot_token, secrets_chat_ids, jerk_aliases
+from _secrets import secrets_bot_token, secrets_chat_ids, jerk_aliases, banned_user_ids
 import logging
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
@@ -68,12 +68,13 @@ def shitpost(update: Update, context):
         return
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
-        text = markovify_model.make_short_sentence(140)
+        text = markovify_model.make_sentence(max_words=20, tries=15)
+        #text = markovify_model.make_short_sentence(140)
         update.message.reply_text(text, quote=False)
     else:
-        start = match.group(1)
         try:
-            text = markovify_model.make_sentence_with_start(start, strict=False, max_words=15)
+            start = match.group(1)
+            text = markovify_model.make_sentence_with_start(start, strict=False, max_words=20, tries=15)
             update.message.reply_text(text, quote=False)
         except:
             update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)
@@ -384,6 +385,8 @@ def handle_normal_messages(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info(f"[msg] {update.message.text}")
+    if (update.message.from_user.id in banned_user_ids):
+        logger.info(f"  From banned user {update.message.from_user.id}. Ignored.")
     r.rpush(RECEIVED_MESSAGES_LIST, update.message.text)
     MESSAGES.append(update.message.text)
 
@@ -394,16 +397,23 @@ if __name__ == '__main__':
     logger.info("Parsing messages...")
     f = open('_secrets/messages.json')
     data = json.load(f)
+    banned_user_ids_str = [str(id) for id in banned_user_ids]
     for message in data['messages']:
         if ("text_entities" in message):
             text = "".join([txt.get("text") for txt in message.get("text_entities")])
-            if (text != ""):
+            # Ignore commands and messages from banned users
+            # Skip "user" prefix from id... Telegram export does this for some reason
+            if (text != "" and "from_id" in message and message['from_id'][4:] not in banned_user_ids_str and not text.startswith("/")):
                 MESSAGES.append(text)
     f.close()
 
     for message in r.lrange(RECEIVED_MESSAGES_LIST, 0, -1):
         message = message.decode("utf-8")
         MESSAGES.append(message)
+    
+    if (len(MESSAGES) == 0):
+        # The bot assumes that the messages list is never empty so if there is none we put a default message there
+        MESSAGES.append("Привет!")
 
     logger.info("Loading shitpost model...")
     markovify_model = markovify.Text("\n".join(MESSAGES))
@@ -428,8 +438,8 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("jerkstats", get_jerk_stats))
     u.dispatcher.add_handler(CommandHandler("jerkall", get_jerk_regs))
     u.dispatcher.add_handler(CommandHandler("dice", dice))
-    u.dispatcher.add_handler(CommandHandler("slot", casino))
-    u.dispatcher.add_handler(CommandHandler("shitpost", shitpost))
+    u.dispatcher.add_handler(CommandHandler(("slot", "casino"), casino))
+    u.dispatcher.add_handler(CommandHandler(("shitpost", "s"), shitpost))
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
 

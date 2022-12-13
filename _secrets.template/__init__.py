@@ -7,6 +7,10 @@ secrets_bot_token = ""
 # Bot will also print them when you try to execute a blacklisted command
 secrets_chat_ids = []
 
+# "Banned" users
+# Messages from these users will be ignored from messages.json and new messages won't be stored in DB
+# It makes sense to put commonly used bots here in order to not dillute the message pool
+banned_user_ids = []
 
 # --- Custom replies ---
 # Aliases for the Jerk of the Day that will randomly rotate daily

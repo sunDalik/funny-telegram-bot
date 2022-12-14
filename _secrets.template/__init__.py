@@ -12,6 +12,13 @@ secrets_chat_ids = []
 # It makes sense to put commonly used bots here in order to not dillute the message pool
 banned_user_ids = []
 
+# Custom user aliases that can be used to refer to other users by their nicknames instead of usernames
+# Keys are user IDs, values are lists of aliases
+# Assigning the same alias to multiple users will choose a user randomly every time
+user_aliases = {
+    12345: ["john", "johnny", "jack"]
+}
+
 # --- Custom replies ---
 # Aliases for the Jerk of the Day that will randomly rotate daily
 # Provide lowercase words in Nominative, Genitive, Genitive plural and Instrumental plural cases

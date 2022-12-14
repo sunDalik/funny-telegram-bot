@@ -2,7 +2,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import time
 
-from _secrets import secrets_bot_token, secrets_chat_ids, jerk_aliases, banned_user_ids
+from _secrets import secrets_bot_token, secrets_chat_ids, jerk_aliases, banned_user_ids, user_aliases
 import logging
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
@@ -48,6 +48,21 @@ def get_daily_jerk_word() -> list:
     my_random.seed(seed)
     return my_random.choice(jerk_aliases)
 
+def parse_userid(username: str):
+    username = username.strip()
+    shuffled_alias_keys = list(user_aliases.keys())
+    random.shuffle(shuffled_alias_keys)
+    for alias_key in shuffled_alias_keys:
+        for alias in user_aliases[alias_key]:
+            if (alias == username):
+                return alias_key
+    
+    username = username[1:] if username.startswith("@") else username
+    for key, value in r.hgetall(USER_ID_TO_NAME).items():
+        if (value.decode("utf-8") == username):
+            return key.decode("utf-8")
+    return None
+
 
 def ping(update: Update, context):
     update.message.reply_text("Понг!", quote=True)
@@ -56,7 +71,17 @@ def ping(update: Update, context):
 def test(update: Update, context):
     if (not in_whitelist(update)):
         return
-    update.message.reply_text("Looking cool joker!", quote=False)
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
+    if (match == None):        
+        update.message.reply_text("Looking cool joker!", quote=False)
+        return
+
+    user_id = parse_userid(match.group(1))
+    if not user_id:
+        update.message.reply_text(f"Кто такой \"{match.group(1)}\"? Что-то я таких не знаю...", quote=False)
+        return
+    else:
+        update.message.reply_text(f"{user_id}", quote=False)
 
 
 def shitpost(update: Update, context):
@@ -262,6 +287,9 @@ def get_username_by_id(id) -> str:
     username = username.decode('utf-8') if username else str(id)
     return username
 
+def update_user_data(id, username):
+    r.hset(USER_ID_TO_NAME, id, username)
+
 def jerk_reg(update: Update, context):
     if not in_whitelist(update):
         return
@@ -271,18 +299,12 @@ def jerk_reg(update: Update, context):
     reg_user_name = update.message.from_user.username
     already_register = r.sismember(JERKS_REG_SET, reg_user_id)
     count = r.scard(JERKS_REG_SET)
+    update_user_data(reg_user_id, reg_user_name)
     if already_register:
-        # rewrite username
-        old_username = get_username_by_id(reg_user_id)
-        if old_username != reg_user_name:
-            r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
-            update.message.reply_text(f"@{reg_user_name}, поменял твой никнейм.", quote=False)  # change to something funnier
-            return
         update.message.reply_text(f"@{reg_user_name}, ты уже участник этой клоунады", quote=False)
         return
     # set user id and username
     r.sadd(JERKS_REG_SET, reg_user_id)
-    r.hset(USER_ID_TO_NAME, reg_user_id, reg_user_name)
     update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} другими {get_daily_jerk_word()[3]}", quote=False)
 
 
@@ -395,6 +417,7 @@ def handle_normal_messages(update: Update, context):
     logger.info(f"[msg] {update.message.text}")
     if (update.message.from_user.id in banned_user_ids):
         logger.info(f"  From banned user {update.message.from_user.id}. Ignored.")
+    update_user_data(update.message.from_user.id, update.message.from_user.username)
     r.rpush(RECEIVED_MESSAGES_LIST, update.message.text)
     MESSAGES.append(update.message.text)
 

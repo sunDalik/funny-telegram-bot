@@ -1,6 +1,6 @@
 ## Setup
 `pip3 install -r requirements.txt`  
-`mv _secrets.template _secrets`  
+`cp -r _secrets.template _secrets`  
 Update secrets with your data  
 
 Setup redis

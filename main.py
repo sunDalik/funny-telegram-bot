@@ -1,27 +1,22 @@
-from datetime import datetime
-from datetime import timedelta
-from datetime import time
-
-from _secrets import secrets_bot_token, secrets_chat_ids, jerk_aliases, banned_user_ids, user_aliases
+from _secrets import secrets_bot_token, banned_user_ids
 import logging
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
-import redis
 import re
 import json
 import random
-from time import sleep
 import markovify
+import slap_game
+import jerk_of_the_day
+import redis_db
+from utils import in_whitelist
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+r = redis_db.connect()
 DICTIONARY_HASH = 'dictionary'
-JERKS_REG_SET = 'jerks_reg'
-USER_ID_TO_NAME = 'users'
-JERKS = 'jerks'
-JERKS_META = 'jerks_meta'
 RECEIVED_MESSAGES_LIST = 'received_messages_list'
 MESSAGES = []
 MAX_ITERS = 999_999
@@ -33,37 +28,6 @@ again_function = None
 markovify_model = None
 
 
-def in_whitelist(update: Update) -> bool:
-    if (update.message.chat_id not in secrets_chat_ids):
-        logger.warn(f"Blacklisted chat id: {update.message.chat_id}")
-        update.message.reply_text("This chat is not whitelisted")
-        return False
-    return True
-
-
-def get_daily_jerk_word() -> list:
-    curr_date = datetime.now()
-    seed = int(str(curr_date.year % 100) + str(curr_date.month) + str(curr_date.day))
-    my_random = random.Random()
-    my_random.seed(seed)
-    return my_random.choice(jerk_aliases)
-
-def parse_userid(username: str):
-    username = username.strip()
-    shuffled_alias_keys = list(user_aliases.keys())
-    random.shuffle(shuffled_alias_keys)
-    for alias_key in shuffled_alias_keys:
-        for alias in user_aliases[alias_key]:
-            if (alias == username):
-                return alias_key
-    
-    username = username[1:] if username.startswith("@") else username
-    for key, value in r.hgetall(USER_ID_TO_NAME).items():
-        if (value.decode("utf-8") == username):
-            return key.decode("utf-8")
-    return None
-
-
 def ping(update: Update, context):
     update.message.reply_text("Понг!", quote=True)
 
@@ -71,17 +35,7 @@ def ping(update: Update, context):
 def test(update: Update, context):
     if (not in_whitelist(update)):
         return
-    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
-    if (match == None):        
-        update.message.reply_text("Looking cool joker!", quote=False)
-        return
-
-    user_id = parse_userid(match.group(1))
-    if not user_id:
-        update.message.reply_text(f"Кто такой \"{match.group(1)}\"? Что-то я таких не знаю...", quote=False)
-        return
-    else:
-        update.message.reply_text(f"{user_id}", quote=False)
+    update.message.reply_text("Looking cool joker!", quote=False)
 
 
 def shitpost(update: Update, context):
@@ -104,7 +58,9 @@ def shitpost(update: Update, context):
             again_function = lambda: shitpost(update, context)
             update.message.reply_text(text, quote=False)
         except:
-            update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)
+            #update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)
+            text = markovify_model.make_sentence(max_words=20, tries=15)
+            update.message.reply_text(text, quote=False)
 
 
 def dice(update: Update, context):
@@ -219,7 +175,7 @@ def explain(update: Update, context, beta=False):
             update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
         return
     logger.info(f"  Result: {result}")
-    update.message.reply_text(f"*{definition}*\n{result}", parse_mode=ParseMode.MARKDOWN, quote=False)
+    update.message.reply_text(f"<b>{definition}</b>\n{result}", parse_mode=ParseMode.HTML, quote=False)
 
 
 def talk(update: Update, context):
@@ -282,120 +238,6 @@ def getAll(update: Update, context):
     update.message.reply_text(header + response, quote=False)
 
 
-def get_username_by_id(id) -> str:
-    username = r.hget(USER_ID_TO_NAME, id)
-    username = username.decode('utf-8') if username else str(id)
-    return username
-
-def update_user_data(id, username):
-    r.hset(USER_ID_TO_NAME, id, username)
-
-def jerk_reg(update: Update, context):
-    if not in_whitelist(update):
-        return
-    # set user id to regs
-    logger.info('[jerk_reg]')
-    reg_user_id = update.message.from_user.id
-    reg_user_name = update.message.from_user.username
-    already_register = r.sismember(JERKS_REG_SET, reg_user_id)
-    count = r.scard(JERKS_REG_SET)
-    update_user_data(reg_user_id, reg_user_name)
-    if already_register:
-        update.message.reply_text(f"@{reg_user_name}, ты уже участник этой клоунады", quote=False)
-        return
-    # set user id and username
-    r.sadd(JERKS_REG_SET, reg_user_id)
-    update.message.reply_text(f"@{reg_user_name}, теперь ты участвуешь в лотерее вместе с {count} другими {get_daily_jerk_word()[3]}", quote=False)
-
-
-def jerk_unreg(update: Update, context):
-    if not in_whitelist(update):
-        return
-    logger.info('[jerk_unreg]')
-    reg_user_id = update.message.from_user.id
-    reg_user_name = update.message.from_user.username
-    already_register = r.sismember(JERKS_REG_SET, reg_user_id)
-    if not already_register:
-        update.message.reply_text(f"@{reg_user_name}, ты и так не регистрировался", quote=False)
-        return
-    r.srem(JERKS_REG_SET, reg_user_id)
-    update.message.reply_text(f"Правильное решение, @{reg_user_name}. Вычеркнул тебя из списка", quote=False)
-
-
-def jerk_of_the_day(update: Update, context):
-    if (not in_whitelist(update)):
-        return
-    logger.info('[jerk_of_the_day]')
-    # r.hdel(JERKS_META, 'roll_time')
-
-    last_roll = r.hget(JERKS_META, 'roll_time')
-
-    datetime_format = '%Y-%m-%d %H:%M:%S'
-    cur_datetime = datetime.now()
-    cur_datetime_str = cur_datetime.strftime(datetime_format)
-
-    if last_roll:
-        last_roll_dt = datetime.strptime(last_roll.decode('utf-8'), datetime_format)
-        is_same_day = cur_datetime.year == last_roll_dt.year and cur_datetime.month == last_roll_dt.month \
-                      and cur_datetime.day == last_roll_dt.day
-        if is_same_day:
-            cur_jerk_id = r.hget(JERKS_META, 'last_jerk')
-            cur_jerk_username = get_username_by_id(cur_jerk_id)
-            tomorrow = cur_datetime + timedelta(days=1)
-            time_to_next = datetime.combine(tomorrow, time.min) - cur_datetime
-            time_to_next_h, time_to_next_m = time_to_next.seconds // 3600, (time_to_next.seconds // 60) % 60
-            update.message.reply_text(f"Сегодняшний {get_daily_jerk_word()[0]} дня: *{cur_jerk_username}*.\n"
-                                      f"Следующий запуск будет доступен через: "
-                                      f"{time_to_next_h} ч. и {time_to_next_m} м.",
-                                      quote=False, parse_mode=ParseMode.MARKDOWN)
-            return
-    players = r.smembers(JERKS_REG_SET)
-    pl = [player.decode('utf-8') for player in players]
-    if (len(pl) == 0):
-        update.message.reply_text("А че вы роллить собрались? Никто не зарегистрировался", quote=True)
-    winner_id = random.choice(pl)
-    winner_username = get_username_by_id(winner_id)
-    r.hset(JERKS_META, 'last_jerk', winner_id)
-    r.hset(JERKS_META, 'roll_time', cur_datetime_str)
-    r.hincrby(JERKS, winner_id, 1)
-
-    update.message.reply_text(f"Выбираю {get_daily_jerk_word()[1]} на сегодня", quote=False)
-    sleep(1)
-    update.message.reply_text(f"А вот и победитель - @{winner_username}!", quote=False)
-    logger.info(f'  WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
-    return
-
-
-def get_jerk_stats(update: Update, context):
-    if (not in_whitelist(update)):
-        return
-    jerks_dict = {}
-    for key in r.hgetall(JERKS):
-        winner_username = get_username_by_id(key)
-        jerks_dict[winner_username] = r.hget(JERKS, key)
-    message = f"Вот статистика {get_daily_jerk_word()[2]}:\n"
-    i = 1
-    for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
-        message += f"{i}. {k} - {v.decode('utf-8')}\n"
-        i += 1
-    update.message.reply_text(f"{message}", quote=False)
-
-
-def get_jerk_regs(update: Update, context):
-    if (not in_whitelist(update)):
-        return
-    players = [player.decode('utf-8') for player in r.smembers(JERKS_REG_SET)]
-    if (len(players) == 0):
-        update.message.reply_text(f"Никто не зарегистрировался на {get_daily_jerk_word()[1]} дня...", quote=False)    
-        return
-    message = "Вот все известные мне персонажи:\n"
-    i = 1
-    for player in players:
-        message += f"{i}. {get_username_by_id(player)}\n"
-        i += 1
-    update.message.reply_text(f"{message}", quote=False)
-
-
 def error(update: Update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
@@ -412,19 +254,16 @@ def again(update: Update, context):
         update.message.reply_text("А что /again? Кажется я все забыл...", quote=False)
 
 def handle_normal_messages(update: Update, context):
-    if (not in_whitelist(update)):
+    if (not in_whitelist(update, send_warning=False)):
         return
     logger.info(f"[msg] {update.message.text}")
     if (update.message.from_user.id in banned_user_ids):
         logger.info(f"  From banned user {update.message.from_user.id}. Ignored.")
-    update_user_data(update.message.from_user.id, update.message.from_user.username)
+    redis_db.update_user_data(update.message.from_user.id, update.message.from_user.username)
     r.rpush(RECEIVED_MESSAGES_LIST, update.message.text)
     MESSAGES.append(update.message.text)
 
 if __name__ == '__main__':
-    logger.info("Initializing Redis")
-    r = redis.Redis(host='localhost', port=6379, db=1)
-
     logger.info("Parsing messages...")
     f = open('_secrets/messages.json')
     data = json.load(f)
@@ -461,16 +300,13 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler(("opinion", "o"), opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
-    u.dispatcher.add_handler(CommandHandler("reg", jerk_reg))
-    u.dispatcher.add_handler(CommandHandler("unreg", jerk_unreg))
-    u.dispatcher.add_handler(CommandHandler("jerk", jerk_of_the_day))
     u.dispatcher.add_handler(CommandHandler("del", delDict))
     u.dispatcher.add_handler(CommandHandler(("again", "a"), again))
-    u.dispatcher.add_handler(CommandHandler("jerkstats", get_jerk_stats))
-    u.dispatcher.add_handler(CommandHandler("jerkall", get_jerk_regs))
     u.dispatcher.add_handler(CommandHandler("dice", dice))
     u.dispatcher.add_handler(CommandHandler(("slot", "casino"), casino))
     u.dispatcher.add_handler(CommandHandler(("shitpost", "s"), shitpost))
+    jerk_of_the_day.subscribe(u)
+    slap_game.subscribe(u)
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
 

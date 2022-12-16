@@ -69,7 +69,7 @@ def jerk_roll(update: Update, context):
     cur_datetime_str = cur_datetime.strftime(datetime_format)
 
     if last_roll:
-        last_roll_dt = datetime.strptime(last_roll.decode('utf-8'), datetime_format)
+        last_roll_dt = datetime.strptime(last_roll, datetime_format)
         is_same_day = cur_datetime.year == last_roll_dt.year and cur_datetime.month == last_roll_dt.month \
                       and cur_datetime.day == last_roll_dt.day
         if is_same_day:
@@ -83,11 +83,10 @@ def jerk_roll(update: Update, context):
                                       f"{time_to_next_h} ч. и {time_to_next_m} м.",
                                       quote=False, parse_mode=ParseMode.HTML)
             return
-    players = r.smembers(JERKS_REG_SET)
-    pl = [player.decode('utf-8') for player in players]
-    if (len(pl) == 0):
+    players = list(r.smembers(JERKS_REG_SET))
+    if (len(players) == 0):
         update.message.reply_text("А че вы роллить собрались? Никто не зарегистрировался", quote=True)
-    winner_id = random.choice(pl)
+    winner_id = random.choice(players)
     winner_username = redis_db.get_username_by_id(winner_id)
     r.hset(JERKS_META, 'last_jerk', winner_id)
     r.hset(JERKS_META, 'roll_time', cur_datetime_str)
@@ -105,12 +104,12 @@ def get_jerk_stats(update: Update, context):
         return
     jerks_dict = {}
     for key in r.hgetall(JERKS):
-        winner_username = redis_db.get_username_by_id(key.decode("utf-8"))
+        winner_username = redis_db.get_username_by_id(key)
         jerks_dict[winner_username] = r.hget(JERKS, key)
     message = f"Вот статистика {get_daily_jerk_word()[2]}:\n"
     i = 1
     for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
-        message += f"{i}. {k} - {v.decode('utf-8')}\n"
+        message += f"{i}. {k} - {v}\n"
         i += 1
     update.message.reply_text(f"{message}", quote=False)
 
@@ -118,7 +117,7 @@ def get_jerk_stats(update: Update, context):
 def get_jerk_regs(update: Update, context):
     if (not in_whitelist(update)):
         return
-    players = [player.decode('utf-8') for player in r.smembers(JERKS_REG_SET)]
+    players = r.smembers(JERKS_REG_SET)
     if (len(players) == 0):
         update.message.reply_text(f"Никто не зарегистрировался на {get_daily_jerk_word()[1]} дня...", quote=False)    
         return

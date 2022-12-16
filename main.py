@@ -86,16 +86,13 @@ def getDict(update: Update, context):
         return
     key = match.group(1)
     val = r.hget(DICTIONARY_HASH, key)
-    if val is not None:
-        val = val.decode('utf-8')
+    
     if val is None:
-        keys = [k.decode('utf-8') for k in r.hgetall(DICTIONARY_HASH)]
+        keys = list(r.hgetall(DICTIONARY_HASH).keys())
         close_matches = difflib.get_close_matches(key, keys, n=1)
         if len(close_matches) > 0:
             key = close_matches[0]
             val = r.hget(DICTIONARY_HASH, key)
-            if val is not None:
-                val = val.decode('utf-8')
         
     if val is None:
         update.message.reply_text("Не помню такого", quote=True)
@@ -117,7 +114,7 @@ def setDict(update: Update, context):
     old_value = r.hget(DICTIONARY_HASH, key)
     r.hset(DICTIONARY_HASH, key, val)
     if (old_value != None):
-        update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value.decode('utf-8')}\"", quote=False)
+        update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value}\"", quote=False)
     else:
         update.message.reply_text(f"Запомнил {key}!", quote=False)
 
@@ -233,12 +230,11 @@ def getAll(update: Update, context):
     must_start_with = ""
     if match:
         must_start_with = match.group(1)
-    keys = r.hgetall(DICTIONARY_HASH)
-    keys_list = [key.decode('utf-8') for key in keys]
+    keys = list(r.hgetall(DICTIONARY_HASH).keys())
     if must_start_with != "":
-        keys_list = [key for key in keys_list if key.lower().startswith(must_start_with.lower())]
-    keys_list.sort()
-    if (len(keys_list) == 0):
+        keys = [key for key in keys if key.lower().startswith(must_start_with.lower())]
+    keys.sort()
+    if (len(keys) == 0):
         if (must_start_with != ""):
             update.message.reply_text(f"Не нашел никаких гетов, начинающихся на \"{must_start_with}\" >.>", quote=False)
             return
@@ -246,7 +242,7 @@ def getAll(update: Update, context):
             update.message.reply_text(f"Я пока не знаю никаких гетов... Но ты можешь их добавить командой /set!", quote=False)
             return
     header = 'Так вот же все ГЕТЫ:\n\n' if must_start_with == "" else f'Вот все ГЕТЫ, начинающиеся с \"{must_start_with}\":\n\n'
-    response = ", ".join(keys_list)
+    response = ", ".join(keys)
     update.message.reply_text(header + response, quote=False)
 
 
@@ -290,7 +286,6 @@ if __name__ == '__main__':
     f.close()
 
     for message in r.lrange(RECEIVED_MESSAGES_LIST, 0, -1):
-        message = message.decode("utf-8")
         MESSAGES.append(message)
     
     if (len(MESSAGES) == 0):

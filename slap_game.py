@@ -28,7 +28,7 @@ def get_slap_stats(user_id) -> dict:
     stats = r.hget(SLAP_STATS_HASH, str(user_id))
     if stats is None:
         return {}
-    json_string = stats.decode("utf-8")
+    json_string = stats
     try:
         return json.loads(json_string)
     except:
@@ -78,13 +78,19 @@ def slap(update: Update, context):
         update.message.reply_text("Кого будем шлепать?", quote=False)
         return
     user_id = parse_userid(match.group(1), context)
+    user_not_in_chat = False
+    try:
+        user_not_in_chat = user_id is not None and context.bot.get_chat_member(update.message.chat_id, user_id).status == 'left'
+    except:
+        user_not_in_chat = True
+
     if not user_id:
         update.message.reply_text(
             f"Кто такой \"{match.group(1)}\"? Что-то я таких не знаю...", quote=False)
         return
     elif str(user_id) == str(context.bot.id):
         update.message.reply_text("🤨", quote=True)
-    elif (context.bot.get_chat_member(update.message.chat_id, user_id).status == 'left'):
+    elif (user_not_in_chat):
         update.message.reply_text("Ты хотел кого-то шлепнуть... но его не оказалось в чате", quote=True)
     elif str(user_id) == str(update.message.from_user.id):
         update.message.reply_text("Хочешь шлепнуть сам себя? Сделай это в реальной жизни", quote=True)
@@ -116,13 +122,19 @@ def heal(update: Update, context):
         update.message.reply_text("Кого будем лечить?", quote=False)
         return
     user_id = parse_userid(match.group(1), context)
+    user_not_in_chat = False
+    try:
+        user_not_in_chat = user_id is not None and context.bot.get_chat_member(update.message.chat_id, user_id).status == 'left'
+    except:
+        user_not_in_chat = True
+
     if not user_id:
         update.message.reply_text(
             f"Кто такой \"{match.group(1)}\"? Что-то я таких не знаю...", quote=False)
         return
     elif str(user_id) == str(context.bot.id):
         update.message.reply_text("Спасибо, но я вне игры :^", quote=True)
-    elif (context.bot.get_chat_member(update.message.chat_id, user_id).status == 'left'):
+    elif (user_not_in_chat):
         update.message.reply_text("Ты хотел кого-то полечить... но его не оказалось в чате", quote=True)
     elif str(user_id) == str(update.message.from_user.id):
         update.message.reply_text("Ты не можешь лечить сам себя!", quote=True)
@@ -183,6 +195,9 @@ def parry(update: Update, context):
         r.hset(SLAP_STATS_HASH, str(other_user_id), json.dumps(other_user_stats))
     else:
         update.message.reply_text("Парирование провалено", quote=True)
+        stats.pop(SS_LAST_SLAPPED_DATE, None)
+        stats.pop(SS_LAST_SLAPPED_BY_USERID, None)
+        r.hset(SLAP_STATS_HASH, str(update.message.from_user.id), json.dumps(stats))
 
 
 def slap_stats(update: Update, context):
@@ -190,9 +205,8 @@ def slap_stats(update: Update, context):
         return
     slappers_dict = {}
     for key in r.hgetall(SLAP_STATS_HASH):
-        user_id = key.decode("utf-8")
-        username = redis_db.get_username_by_id(user_id)
-        slappers_dict[username] = get_slap_stats(user_id)
+        username = redis_db.get_username_by_id(key)
+        slappers_dict[username] = get_slap_stats(key)
                 
     if len(slappers_dict.keys()) == 0:
         update.message.reply_text("Пока что никто никого не шлепал, поэтому и статистики нет", quote=False)

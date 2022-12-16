@@ -10,6 +10,7 @@ import slap_game
 import jerk_of_the_day
 import redis_db
 from utils import in_whitelist
+import difflib
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -85,10 +86,21 @@ def getDict(update: Update, context):
         return
     key = match.group(1)
     val = r.hget(DICTIONARY_HASH, key)
-    if (val == None):
+    if val is not None:
+        val = val.decode('utf-8')
+    if val is None:
+        keys = [k.decode('utf-8') for k in r.hgetall(DICTIONARY_HASH)]
+        close_matches = difflib.get_close_matches(key, keys, n=1)
+        if len(close_matches) > 0:
+            key = close_matches[0]
+            val = r.hget(DICTIONARY_HASH, key)
+            if val is not None:
+                val = val.decode('utf-8')
+        
+    if val is None:
         update.message.reply_text("Не помню такого", quote=True)
         return
-    update.message.reply_text(f"{key}\n{val.decode('utf-8')}", quote=False)
+    update.message.reply_text(f"{key}\n{val}", quote=False)
 
 
 def setDict(update: Update, context):
@@ -220,7 +232,7 @@ def getAll(update: Update, context):
     match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
     must_start_with = ""
     if match:
-        must_start_with += match.group(1)
+        must_start_with = match.group(1)
     keys = r.hgetall(DICTIONARY_HASH)
     keys_list = [key.decode('utf-8') for key in keys]
     if must_start_with != "":

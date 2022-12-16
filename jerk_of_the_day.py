@@ -93,7 +93,9 @@ def jerk_roll(update: Update, context):
     r.hincrby(JERKS, winner_id, 1)
 
     update.message.reply_text(f"Выбираю {get_daily_jerk_word()[1]} на сегодня", quote=False)
-    sleep(1)
+    sleep(1.5)
+    update.message.reply_text(random.choice(["Хмм...", "Так-так-так...", "Расшифровываю результаты...", "Спрашиваем мнения экспертов...", "Дайте подумать..."]), quote=False)
+    sleep(1.5)
     update.message.reply_text(f"А вот и победитель - @{winner_username}!", quote=False)
     logger.info(f'  WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
     return

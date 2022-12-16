@@ -95,7 +95,9 @@ def slap(update: Update, context):
     elif str(user_id) == str(update.message.from_user.id):
         update.message.reply_text("Хочешь шлепнуть сам себя? Сделай это в реальной жизни", quote=True)
     else:
-        stats[SS_MADE_ACTION_DATE] = datetime.now().strftime(DATETIME_FORMAT)
+        lucky_roll = random.random() < 0.05
+        if not lucky_roll:
+            stats[SS_MADE_ACTION_DATE] = datetime.now().strftime(DATETIME_FORMAT)
         stats[SS_TOTAL_SLAPS] = stats.get(SS_TOTAL_SLAPS, 0) + 1
         other_user_stats = get_slap_stats(user_id)
         other_user_stats[SS_HEALTH] = other_user_stats.get(SS_HEALTH, DEFAULT_HEALTH) - 1
@@ -104,8 +106,9 @@ def slap(update: Update, context):
         r.hset(SLAP_STATS_HASH, str(update.message.from_user.id), json.dumps(stats))
         r.hset(SLAP_STATS_HASH, str(user_id), json.dumps(other_user_stats))
 
+        append = f"\n\nУДАЧНЫЙ ШЛЕПОК!\n<b>{update.message.from_user.username}</b> может сделать еще одно действие сегодня!" if lucky_roll else ""
         update.message.reply_text(
-            f"<b>{update.message.from_user.username}</b> шлепнул @{redis_db.get_username_by_id(user_id)} большой рыбой по лицу!", quote=False, parse_mode=ParseMode.HTML)
+            f"<b>{update.message.from_user.username}</b> шлепнул @{redis_db.get_username_by_id(user_id)} большой рыбой по лицу!{append}", quote=False, parse_mode=ParseMode.HTML)
 
 
 def heal(update: Update, context):
@@ -139,15 +142,18 @@ def heal(update: Update, context):
     elif str(user_id) == str(update.message.from_user.id):
         update.message.reply_text("Ты не можешь лечить сам себя!", quote=True)
     else:
-        stats[SS_MADE_ACTION_DATE] = datetime.now().strftime(DATETIME_FORMAT)
+        lucky_roll = random.random() < 0.05
+        if not lucky_roll:
+            stats[SS_MADE_ACTION_DATE] = datetime.now().strftime(DATETIME_FORMAT)
         stats[SS_TOTAL_HEALS] = stats.get(SS_TOTAL_HEALS, 0) + 1
         other_user_stats = get_slap_stats(user_id)
         other_user_stats[SS_HEALTH] = other_user_stats.get(SS_HEALTH, DEFAULT_HEALTH) + 1
+        append = f"\n\nУДАЧНОЕ ЛЕЧЕНИЕ!\n<b>{update.message.from_user.username}</b> может сделать еще одно действие сегодня!" if lucky_roll else ""
         if is_cooldown_active(other_user_stats.get(SS_VULNERABLE_DATE)):
             other_user_stats.pop(SS_VULNERABLE_DATE, None)
-            update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{redis_db.get_username_by_id(user_id)} по голове и снял уязвимость!", quote=False, parse_mode=ParseMode.HTML)
+            update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{redis_db.get_username_by_id(user_id)} по голове и снял уязвимость!{append}", quote=False, parse_mode=ParseMode.HTML)
         else:
-            update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{redis_db.get_username_by_id(user_id)} по голове.", quote=False, parse_mode=ParseMode.HTML)
+            update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{redis_db.get_username_by_id(user_id)} по голове.{append}", quote=False, parse_mode=ParseMode.HTML)
 
         r.hset(SLAP_STATS_HASH, str(update.message.from_user.id), json.dumps(stats))
         r.hset(SLAP_STATS_HASH, str(user_id), json.dumps(other_user_stats))

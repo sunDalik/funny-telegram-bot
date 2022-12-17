@@ -298,7 +298,7 @@ if __name__ == '__main__':
         MESSAGES.append("Привет!")
 
     logger.info("Loading shitpost model...")
-    #markovify_model = markovify.Text("\n".join(MESSAGES))
+    markovify_model = markovify.Text("\n".join(MESSAGES))
 
     logger.info("Setting up telegram bot")
     u = Updater(secrets_bot_token, use_context=True)

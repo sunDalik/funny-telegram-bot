@@ -106,11 +106,16 @@ def setDict(update: Update, context):
     logger.info(f"[setDict] {update.message.text}")
     match = re.match(r'/[\S]+\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
     if (match == None):
-        update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
-        return
-
-    key = match.group(1)
-    val = match.group(2)
+        match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
+        if match and update.message.reply_to_message is not None:
+            key = match.group(1)
+            val = update.message.reply_to_message.text
+        else:
+            update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
+            return
+    else:
+        key = match.group(1)
+        val = match.group(2)
     old_value = r.hget(DICTIONARY_HASH, key)
     r.hset(DICTIONARY_HASH, key, val)
     if (old_value != None):
@@ -293,7 +298,7 @@ if __name__ == '__main__':
         MESSAGES.append("Привет!")
 
     logger.info("Loading shitpost model...")
-    markovify_model = markovify.Text("\n".join(MESSAGES))
+    #markovify_model = markovify.Text("\n".join(MESSAGES))
 
     logger.info("Setting up telegram bot")
     u = Updater(secrets_bot_token, use_context=True)

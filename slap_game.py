@@ -75,9 +75,13 @@ def slap(update: Update, context):
 
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
-        update.message.reply_text("Кого будем шлепать?", quote=False)
-        return
-    user_id = parse_userid(match.group(1), context)
+        if update.message.reply_to_message is not None:
+            user_id = update.message.reply_to_message.from_user.id
+        else:
+            update.message.reply_text("Кого будем шлепать?", quote=False)
+            return
+    else:
+        user_id = parse_userid(match.group(1), context)
     user_not_in_chat = False
     try:
         user_not_in_chat = user_id is not None and context.bot.get_chat_member(update.message.chat_id, user_id).status == 'left'
@@ -122,9 +126,13 @@ def heal(update: Update, context):
 
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
-        update.message.reply_text("Кого будем лечить?", quote=False)
-        return
-    user_id = parse_userid(match.group(1), context)
+        if update.message.reply_to_message is not None:
+            user_id = update.message.reply_to_message.from_user.id
+        else:
+            update.message.reply_text("Кого будем лечить?", quote=False)
+            return
+    else:
+        user_id = parse_userid(match.group(1), context)
     user_not_in_chat = False
     try:
         user_not_in_chat = user_id is not None and context.bot.get_chat_member(update.message.chat_id, user_id).status == 'left'

@@ -24,6 +24,7 @@ MAX_ITERS = 999_999
 # Don't include apostrophe
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
+POLL_PREFIX =  "#!/Poll"
 
 again_function = None
 markovify_model = None
@@ -97,7 +98,16 @@ def getDict(update: Update, context):
     if val is None:
         update.message.reply_text("Не помню такого", quote=True)
         return
-    update.message.reply_text(f"{key}\n{val}", quote=False)
+    
+    '''
+     A very hacky solution that I dont like! I think all dictionary entries should be json values with a type and a value
+     So instead of storing plain text we would store {"type": "text", "value": "This is my text"}
+    '''
+    if val.startswith(POLL_PREFIX + "{"):
+        poll_data = json.loads(val[len(POLL_PREFIX):])
+        update.message.reply_poll(poll_data.get("question", ""), poll_data.get("options", []), is_anonymous=poll_data.get("is_anonymous", False), allows_multiple_answers=poll_data.get("allows_multiple_answers", False), quote=False)
+    else:
+        update.message.reply_text(f"{key}\n{val}", quote=False)
 
 
 def setDict(update: Update, context):
@@ -109,7 +119,12 @@ def setDict(update: Update, context):
         match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
         if match and update.message.reply_to_message is not None:
             key = match.group(1)
-            val = update.message.reply_to_message.text
+            poll = update.message.reply_to_message.poll
+            if poll is not None:
+                poll_json = {"question": poll.question, "options": [option.text for option in poll.options], "is_anonymous": poll.is_anonymous, "allows_multiple_answers": poll.allows_multiple_answers}
+                val = POLL_PREFIX + json.dumps(poll_json)
+            else:
+                val = update.message.reply_to_message.text
         else:
             update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
             return
@@ -118,8 +133,11 @@ def setDict(update: Update, context):
         val = match.group(2)
     old_value = r.hget(DICTIONARY_HASH, key)
     r.hset(DICTIONARY_HASH, key, val)
-    if (old_value != None):
-        update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value}\"", quote=False)
+    if old_value is not None:
+        if old_value.startswith(POLL_PREFIX):
+            update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то опрос", quote=False)
+        else:
+            update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value}\"", quote=False)
     else:
         update.message.reply_text(f"Запомнил {key}!", quote=False)
 

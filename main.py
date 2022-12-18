@@ -174,7 +174,7 @@ def deep_sentence_matches_definition(definition: str, sentence: list) -> int:
     return -1
 
 
-def explain(update: Update, context, beta=False):
+def explain(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info(f"[explain] {update.message.text}")
@@ -183,28 +183,28 @@ def explain(update: Update, context, beta=False):
         update.message.reply_text("Что тебе объяснить?", quote=True)
         return
     global again_function
-    again_function = lambda: explain(update, context, beta)
+    again_function = lambda: explain(update, context)
     definition = match.group(1)
     result = None
     shuffled_messages = MESSAGES.copy()
     random.shuffle(shuffled_messages)
     for rnd_message in shuffled_messages:
         words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
-        if (beta):
+        if sentence_matches_definition(definition, words):
+            result = rnd_message
+            break
+    
+    if result is None:
+        logger.info(f"  Retrying with deep search...")
+        for rnd_message in shuffled_messages:
+            words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
             starting_index = deep_sentence_matches_definition(definition, words)
             if (starting_index >= 0):
                 result = " ".join(words[starting_index: starting_index + len(definition)])
                 break
-        elif (sentence_matches_definition(definition, words)):
-            result = rnd_message
-            break
 
-    if (result == None):
-        if not beta:
-            logger.info("   Retrying with deep search")
-            explain(update, context, beta=True)
-        else:
-            update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
+    if result is None:
+        update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
         return
     logger.info(f"  Result: {result}")
     update.message.reply_text(f"<b>{definition}</b>\n{result}", parse_mode=ParseMode.HTML, quote=False)
@@ -324,8 +324,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("ping", ping))
     u.dispatcher.add_handler(CommandHandler("get", getDict))
     u.dispatcher.add_handler(CommandHandler("set", setDict))
-    u.dispatcher.add_handler(CommandHandler(("explain", "e"), lambda update, context: explain(update, context, False)))
-    u.dispatcher.add_handler(CommandHandler(("explainbeta", "eb"), lambda update, context: explain(update, context, True)))
+    u.dispatcher.add_handler(CommandHandler(("explain", "e"), explain))
     u.dispatcher.add_handler(CommandHandler("talk", talk))
     u.dispatcher.add_handler(CommandHandler(("opinion", "o"), opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))

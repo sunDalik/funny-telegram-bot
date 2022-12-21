@@ -26,6 +26,7 @@ PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 POLL_PREFIX =  "#!/Poll"
 STICKER_PREFIX =  "#!/Sticker"
+GIF_PREFIX =  "#!/GifAnimation"
 
 again_function = None
 markovify_model = None
@@ -110,6 +111,9 @@ def getDict(update: Update, context):
     elif val.startswith(STICKER_PREFIX):
         file_id = val[len(STICKER_PREFIX):]
         update.message.reply_sticker(file_id, quote=False)
+    elif val.startswith(GIF_PREFIX):
+        file_id = val[len(GIF_PREFIX):]
+        update.message.reply_animation(file_id, quote=False)
     else:
         update.message.reply_text(f"{key}\n{val}", quote=False)
 
@@ -129,6 +133,8 @@ def setDict(update: Update, context):
                 val = POLL_PREFIX + json.dumps(poll_json)
             elif update.message.reply_to_message.sticker is not None:
                 val = STICKER_PREFIX + update.message.reply_to_message.sticker.file_id
+            elif update.message.reply_to_message.animation is not None:
+                val = GIF_PREFIX + update.message.reply_to_message.animation.file_id
             else:
                 val = update.message.reply_to_message.text
         else:
@@ -144,6 +150,8 @@ def setDict(update: Update, context):
             update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то опрос", quote=False)
         elif old_value.startswith(STICKER_PREFIX):
             update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то стикер", quote=False)
+        elif old_value.startswith(GIF_PREFIX):
+            update.message.reply_text(f"Запомнил {key}! Раньше там был какая-то гифка", quote=False)
         else:
             update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value}\"", quote=False)
     else:

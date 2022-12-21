@@ -27,6 +27,8 @@ ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|и
 POLL_PREFIX =  "#!/Poll"
 STICKER_PREFIX =  "#!/Sticker"
 GIF_PREFIX =  "#!/GifAnimation"
+PHOTO_PREFIX =  "#!/PhotoFile"
+CAPTION_DELIMITER =  "/*#!&!#*/"
 
 again_function = None
 markovify_model = None
@@ -114,6 +116,11 @@ def getDict(update: Update, context):
     elif val.startswith(GIF_PREFIX):
         file_id = val[len(GIF_PREFIX):]
         update.message.reply_animation(file_id, quote=False)
+    elif val.startswith(PHOTO_PREFIX):
+        values = val[len(PHOTO_PREFIX):].split(CAPTION_DELIMITER)
+        file_id = values[0]
+        caption = values[1] if len(values) > 1 else ""
+        update.message.reply_photo(file_id, quote=False, caption=caption)
     else:
         update.message.reply_text(f"{key}\n{val}", quote=False)
 
@@ -135,7 +142,14 @@ def setDict(update: Update, context):
                 val = STICKER_PREFIX + update.message.reply_to_message.sticker.file_id
             elif update.message.reply_to_message.animation is not None:
                 val = GIF_PREFIX + update.message.reply_to_message.animation.file_id
-            else:
+            elif update.message.reply_to_message.photo is not None and len(update.message.reply_to_message.photo) > 0:
+                # Messages store photos in an array where the last object of an array is the highest resolution version of a photo
+                file_id = update.message.reply_to_message.photo[-1].file_id
+                caption = update.message.reply_to_message.caption
+                if caption is None:
+                    caption = ""
+                val = PHOTO_PREFIX + file_id + CAPTION_DELIMITER + caption 
+            else:   
                 val = update.message.reply_to_message.text
         else:
             update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
@@ -151,7 +165,9 @@ def setDict(update: Update, context):
         elif old_value.startswith(STICKER_PREFIX):
             update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то стикер", quote=False)
         elif old_value.startswith(GIF_PREFIX):
-            update.message.reply_text(f"Запомнил {key}! Раньше там был какая-то гифка", quote=False)
+            update.message.reply_text(f"Запомнил {key}! Раньше там была какая-то гифка", quote=False)
+        elif old_value.startswith(PHOTO_PREFIX):
+            update.message.reply_text(f"Запомнил {key}! Раньше там была какая-то картинка", quote=False)
         else:
             update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value}\"", quote=False)
     else:

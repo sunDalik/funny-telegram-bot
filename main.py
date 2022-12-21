@@ -25,6 +25,7 @@ MAX_ITERS = 999_999
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 POLL_PREFIX =  "#!/Poll"
+STICKER_PREFIX =  "#!/Sticker"
 
 again_function = None
 markovify_model = None
@@ -106,6 +107,9 @@ def getDict(update: Update, context):
     if val.startswith(POLL_PREFIX + "{"):
         poll_data = json.loads(val[len(POLL_PREFIX):])
         update.message.reply_poll(poll_data.get("question", ""), poll_data.get("options", []), is_anonymous=poll_data.get("is_anonymous", False), allows_multiple_answers=poll_data.get("allows_multiple_answers", False), quote=False)
+    elif val.startswith(STICKER_PREFIX):
+        file_id = val[len(STICKER_PREFIX):]
+        update.message.reply_sticker(file_id, quote=False)
     else:
         update.message.reply_text(f"{key}\n{val}", quote=False)
 
@@ -123,6 +127,8 @@ def setDict(update: Update, context):
             if poll is not None:
                 poll_json = {"question": poll.question, "options": [option.text for option in poll.options], "is_anonymous": poll.is_anonymous, "allows_multiple_answers": poll.allows_multiple_answers}
                 val = POLL_PREFIX + json.dumps(poll_json)
+            elif update.message.reply_to_message.sticker is not None:
+                val = STICKER_PREFIX + update.message.reply_to_message.sticker.file_id
             else:
                 val = update.message.reply_to_message.text
         else:
@@ -136,6 +142,8 @@ def setDict(update: Update, context):
     if old_value is not None:
         if old_value.startswith(POLL_PREFIX):
             update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то опрос", quote=False)
+        elif old_value.startswith(STICKER_PREFIX):
+            update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то стикер", quote=False)
         else:
             update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value}\"", quote=False)
     else:

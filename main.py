@@ -85,11 +85,11 @@ def getDict(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info(f"[getDict] {update.message.text}")
-    match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
         update.message.reply_text("Ты чего хочешь-то?", quote=True)
         return
-    key = match.group(1)
+    key = match.group(1).strip()
     val = r.hget(DICTIONARY_HASH, key)
     
     if val is None:
@@ -117,7 +117,7 @@ def getDict(update: Update, context):
         file_id = val[len(GIF_PREFIX):]
         update.message.reply_animation(file_id, quote=False)
     elif val.startswith(PHOTO_PREFIX):
-        values = val[len(PHOTO_PREFIX):].split(CAPTION_DELIMITER)
+        values = val[len(PHOTO_PREFIX):].split(CAPTION_DELIMITER, maxsplit=1)
         file_id = values[0]
         caption = values[1] if len(values) > 1 else ""
         update.message.reply_photo(file_id, quote=False, caption=caption)
@@ -271,7 +271,7 @@ def opinion(update: Update, context):
         lower_message = rnd_message.lower()
         #if (all(thing in lower_message for thing in things)):
         # Only search for matches at the begining of words
-        if (len(rnd_message) <= 500 and all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things)):
+        if (len(rnd_message) <= 550 and all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things)):
             update.message.reply_text(rnd_message, quote=False)
             return
     update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)

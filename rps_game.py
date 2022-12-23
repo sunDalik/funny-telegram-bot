@@ -37,7 +37,8 @@ def format_playing_field(game_state) -> str:
             if game_state["decisions"][i] != "":
                 emojis[i] = "✅"
     text += f"{emojis[0]} @{game_state['player_usernames'][0]} ({game_state['scores'][0]})  vs.  {emojis[1]} @{game_state['player_usernames'][1]} ({game_state['scores'][1]})\n\n"
-    text += f"Ход игры:\n{game_state['log']}"
+    if game_state['log'] != "":
+        text += f"Ход игры:\n{game_state['log']}"
     return text
 
 

@@ -8,6 +8,7 @@ import random
 import markovify
 import slap_game
 import jerk_of_the_day
+import rps_game
 import redis_db
 from utils import in_whitelist
 import difflib
@@ -368,9 +369,9 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler(("shitpost", "s"), shitpost))
     jerk_of_the_day.subscribe(u)
     slap_game.subscribe(u)
+    rps_game.subscribe(u)
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
-
     
     u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_normal_messages))
     u.dispatcher.add_error_handler(error)

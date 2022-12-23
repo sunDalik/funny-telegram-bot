@@ -1,9 +1,8 @@
-from _secrets import user_aliases
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler
 import redis_db
 import re
-from utils import in_whitelist
+from utils import in_whitelist, parse_userid
 import random
 import json
 from datetime import datetime, timedelta, time
@@ -46,21 +45,6 @@ def is_cooldown_active(cooldown_start_date_str) -> bool:
         and cur_datetime.month == cooldown_start_date_dt.month \
         and cur_datetime.day == cooldown_start_date_dt.day
     return is_same_day
-
-
-def parse_userid(username: str, context):
-    username = username.strip()
-    shuffled_alias_keys = list(user_aliases.keys())
-    random.shuffle(shuffled_alias_keys)
-    for alias_key in shuffled_alias_keys:
-        for alias in user_aliases[alias_key]:
-            if (alias.lower() == username.lower()):
-                return alias_key
-    
-    if(username == context.bot.username or username == f"@{context.bot.username}"):
-        return context.bot.id
-
-    return redis_db.reverse_lookup_id(username)
 
 
 def slap(update: Update, context):

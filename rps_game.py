@@ -111,8 +111,8 @@ def on_rps_action(update: Update, context: CallbackContext):
             game_state = state
             
     if game_state is None:
-        query.message.reply_text("Не могу найти игру, вероятно она сильно устарела :(", quote=False)
         query.answer()
+        query.edit_message_text(text="Не могу найти данные этой игры, вероятно она устарела :(")
         return
     
     player_index = -1

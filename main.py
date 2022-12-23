@@ -376,5 +376,32 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_normal_messages))
     u.dispatcher.add_error_handler(error)
 
+    u.bot.set_my_commands([
+        ("ping", "am I alive?"),
+        ("get", "<key> get value by key"),
+        ("set", "<key> <value> set value by key"),
+        ("del", "<key> delete key"),
+        ("getall", "[search] get all keys / get all keys starting with search"),
+        ("explain", "<definition> find a suitable explanation for the given definition"),
+        ("opinion", "<thing> what's my opinion on thing?"),
+        ("shitpost", "[thing] generate a shitpost message using markov chain (optionally starting with [thing])"),
+        ("talk", "get random message"),
+        ("again", "repeat last /explain or /opinion"),
+        ("reg", "register for the \"jerk of the day\" game"),
+        ("unreg", "unregister from the \"jerk of the day\" game"),
+        ("jerk", "roll \"jerk of the day\""),
+        ("jerkstats", "get all-time stats for the \"jerk of the day\""),
+        ("jerkall", "get a list of all users registered for the \"jerk of the day\""),
+        ("slap", "<person> slap person and reduce their slap-score by 1"),
+        ("heal", "<person> heal person to increase their slap-score by 1 and cure vulnerability"),
+        ("parry", "parry a slap within a minute to block it"),
+        ("slapstats", "get all-time stats for the slap-game"),
+        ("slaprules", "review rules of the slap-game"),
+        ("rps", "<person> play a rock-paper-scissors game with person"),
+        ("dice", "roll the dice"),
+        ("slot", "gambling time"),
+        ("contribute", "get github link"),
+    ])
+
     logger.info("Started polling for updates")
     u.start_polling()

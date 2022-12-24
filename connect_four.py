@@ -1,11 +1,13 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram.error import RetryAfter
 import redis_db
 import re
 from utils import in_whitelist, parse_userid
 import random
 import json
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 r = redis_db.connect()
@@ -250,9 +252,15 @@ def try_edit(query, game_state, reply_markup = None) -> bool:
         query.edit_message_text(text=format_playing_field(game_state), reply_markup=reply_markup)
         query.answer()
         return True
-    except:
+    # On RetryAfter its guaranteed that the message wont be updated. However if we encounter some other weird error then the message is PROBABLY updated so we return true
+    except RetryAfter:
         query.answer("Не получилось обновить игру из-за защиты от спама :(")
         return False
+    except Exception as e:
+        #print(traceback.format_exc())
+        print(e)
+        query.answer()
+        return True
 
 
 def subscribe(u: Updater):

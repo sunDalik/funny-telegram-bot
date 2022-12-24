@@ -1,5 +1,6 @@
 from _secrets import user_aliases
 from telegram import ParseMode, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import RetryAfter
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
 import redis_db
 import re
@@ -8,6 +9,7 @@ import random
 import json
 from datetime import datetime, timedelta, time
 import math
+import traceback
 
 r = redis_db.connect()
 
@@ -208,9 +210,14 @@ def try_edit(query, game_state, reply_markup = None) -> bool:
         query.edit_message_text(text=format_playing_field(game_state), reply_markup=reply_markup)
         query.answer()
         return True
-    except:
+    except RetryAfter:
         query.answer("Не получилось обновить игру из-за защиты от спама :(")
         return False
+    except Exception as e:
+        #print(traceback.format_exc())
+        print(e)
+        query.answer()
+        return True
 
 
 def subscribe(u: Updater):

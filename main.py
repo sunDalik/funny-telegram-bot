@@ -1,5 +1,6 @@
 from _secrets import secrets_bot_token, banned_user_ids
 import logging
+import logging.handlers
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
 import re
@@ -14,8 +15,9 @@ import redis_db
 from utils import in_whitelist
 import difflib
 
+rfh = logging.handlers.RotatingFileHandler(filename='debug.log', mode='w', maxBytes=2*1024*1024, backupCount=0,)
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+                    level=logging.INFO, handlers=[rfh, logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 
 r = redis_db.connect()

@@ -14,9 +14,11 @@ games_data = []
 MAX_INCORRECT_GUESSES = 8
 
 def format_playing_field(game_state) -> str:
+    if game_state['creator_id'] is not None:
+        return f"{redis_db.get_username_by_id(game_state['creator_id'])} загадывает слово..."
     text = ""
     if game_state['incorrect_guesses'] >= MAX_INCORRECT_GUESSES:
-        text = f"Чел умер... Довольны?\n(Ответ: \"{game_state['answer']}\")\n\n"
+        text = f"Чел умер... Довольны?\n(Ответ: \"{game_state['answer'].upper()}\")\n\n"
     elif is_game_won(game_state):
         text = "Победа!\n\n"
     
@@ -30,7 +32,9 @@ def format_playing_field(game_state) -> str:
     text += "\n\n"
 
     for c in game_state['answer']:
-        if c.lower() in game_state['guesses']:
+        if c == " ":
+            text += "   "
+        elif c.lower() in game_state['guesses']:
             text += c.upper() + " "
         else:
             text += "_ "
@@ -49,7 +53,7 @@ def clean_old_games():
     games_data = games_data[remove_games:]
 
 
-def get_hangman_keyboard(guesses) -> InlineKeyboardMarkup:
+def get_hangman_keyboard(guesses, creation_phase: bool) -> InlineKeyboardMarkup:
     keyboard_ru = [
         [
             InlineKeyboardButton("А", callback_data="h_а"),
@@ -94,43 +98,29 @@ def get_hangman_keyboard(guesses) -> InlineKeyboardMarkup:
     ]
     for index, row in enumerate(keyboard_ru):
         keyboard_ru[index] = [button for button in row if button.text.lower() not in guesses]
-            
+
+    if creation_phase:
+        keyboard_ru.append([InlineKeyboardButton("Пробел", callback_data="h_ ")])
+        keyboard_ru.append([InlineKeyboardButton("DEL", callback_data="h_del"), InlineKeyboardButton("🆗", callback_data="h_ok")],)
+
     return InlineKeyboardMarkup(keyboard_ru)
 
 
 def start_hangman(update: Update, context: CallbackContext):
     if (not in_whitelist(update)):
         return
-
-    shuffled_messages = redis_db.messages.copy()
-    random.shuffle(shuffled_messages)
-    result = ""
-    word_regex = re.compile(r"^[А-Яа-яёЁ]{4,12}$")
-    for rnd_message in shuffled_messages:
-        words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
-        for word in words:
-            if word_regex.match(word) is not None:
-                word = word.replace("ё", "е")
-                word = word.replace("Ё", "Е")
-                result = word
-                break
-
-        if result != "":
-            break
-
-    if result == "":
-        result = "Ошибка"
-
-    new_game_state = {"message_id": "", "answer": result, "guesses": [], "incorrect_guesses": 0, "last_action": "Игра началась!\n", "last_user_id": -1}
-    message = update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_hangman_keyboard([]), quote=False)
+    new_game_state = {"message_id": "", "answer": "", "guesses": [], "incorrect_guesses": 0, "last_action": "Игра началась!\n", "last_user_id": -1, "creator_id": update.message.from_user.id}
+    message = update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_hangman_keyboard([], True), quote=False)
     new_game_state["message_id"] = str(message.chat_id) + "/" + str(message.message_id)
     games_data.append(new_game_state)
     clean_old_games()
 
 
 def is_game_won(game_state) -> bool:
+    if game_state['creator_id'] is not None:
+        return False
     for c in game_state['answer']:
-        if c.lower() not in game_state['guesses']:
+        if c != " " and c.lower() not in game_state['guesses']:
             return False
     return True
 
@@ -149,6 +139,36 @@ def on_hangman_action(update: Update, context: CallbackContext):
             
     if game_state is None:
         query.answer("Не могу найти данные этой игры :(")
+        return
+    
+    if game_state['creator_id'] is not None:
+        if query.from_user.id != game_state['creator_id']:
+            query.answer()
+            return
+
+        if query.data == 'h_ok':
+            if len(game_state['answer']) <= 2:
+                query.answer("Слишком короткое слово!")
+                return
+            game_state['creator_id'] = None
+            edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses'], False))
+            if not edit_res:
+                game_state['creator_id'] = query.from_user.id
+            query.answer()
+            return
+        elif query.data == 'h_del':
+            if len(game_state['answer']) > 0:
+                game_state['answer'] = game_state['answer'][:-1]
+            query.answer(f"Ввод: {game_state['answer']}")
+            return
+        else:
+            letter = query.data[2:].lower()
+            game_state['answer'] += letter
+            query.answer(f"Ввод: {game_state['answer']}")
+            return
+    
+    if query.data == 'h_ok' or query.data == 'h_del':
+        query.answer()
         return
 
     if game_state["incorrect_guesses"] >= MAX_INCORRECT_GUESSES or is_game_won(game_state):
@@ -186,7 +206,7 @@ def on_hangman_action(update: Update, context: CallbackContext):
                 if state == game_state:
                     games_data[index] = prev_game_state
     else:
-        edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses']))
+        edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses'], False))
         if not edit_res:
             for index, state in enumerate(games_data):
                 if state == game_state:

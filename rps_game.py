@@ -117,24 +117,24 @@ def on_rps_action(update: Update, context: CallbackContext):
     query = update.callback_query
     # Not checking for whitelist because its broken with callback query...
     # But we still check if the message from query exists in our database so all is good!
-    if not query.data.startswith("rps_"):
-        return    
 
     game_state = None
+    message_id = str(query.message.chat_id) + "/" + str(query.message.message_id)
     for state in games_data:
-        if state["message_id"] == str(query.message.chat_id) + "/" + str(query.message.message_id):
+        if state["message_id"] == message_id:
             game_state = state
+            break
             
     if game_state is None:
-        query.answer()
-        query.edit_message_text(text="Не могу найти данные этой игры, вероятно она устарела :(")
+        query.answer("Не могу найти данные этой игры :(")
         return
     
-    if query.data == "rps_join" and game_state['player_ids'][1] is None and query.from_user.id != game_state['player_ids'][0]:
+    if query.data == "rps_join":
+        if game_state['player_ids'][1] is None and query.from_user.id != game_state['player_ids'][0]:
+            game_state['player_ids'][1] = query.from_user.id
+            game_state['player_usernames'][1] = redis_db.get_username_by_id(query.from_user.id)
+            query.edit_message_text(text=format_playing_field(game_state), reply_markup=get_rps_keyboard(False))
         query.answer()
-        game_state['player_ids'][1] = query.from_user.id
-        game_state['player_usernames'][1] = redis_db.get_username_by_id(query.from_user.id)
-        query.edit_message_text(text=format_playing_field(game_state), reply_markup=get_rps_keyboard(False))
         return
 
     player_index = -1
@@ -192,4 +192,4 @@ def on_rps_action(update: Update, context: CallbackContext):
 
 def subscribe(u: Updater):
     u.dispatcher.add_handler(CommandHandler("rps", start_rps))
-    u.dispatcher.add_handler(CallbackQueryHandler(on_rps_action))
+    u.dispatcher.add_handler(CallbackQueryHandler(on_rps_action, pattern="^rps_"))

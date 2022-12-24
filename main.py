@@ -9,6 +9,7 @@ import markovify
 import slap_game
 import jerk_of_the_day
 import rps_game
+import connect_four
 import redis_db
 from utils import in_whitelist
 import difflib
@@ -370,6 +371,7 @@ if __name__ == '__main__':
     jerk_of_the_day.subscribe(u)
     slap_game.subscribe(u)
     rps_game.subscribe(u)
+    connect_four.subscribe(u)
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     
@@ -398,6 +400,7 @@ if __name__ == '__main__':
         ("slapstats", "get all-time stats for the slap-game"),
         ("slaprules", "review rules of the slap-game"),
         ("rps", "[person] play a rock-paper-scissors game with person"),
+        ("cf", "[person] play a Connect 4 game with person"),
         ("dice", "roll the dice"),
         ("slot", "gambling time"),
         ("contribute", "get github link"),

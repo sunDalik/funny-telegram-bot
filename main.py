@@ -323,7 +323,7 @@ def handle_normal_messages(update: Update, context):
     logger.info(f"[msg] {update.message.text}")
     if (update.message.from_user.id in banned_user_ids):
         logger.info(f"  From banned user {update.message.from_user.id}. Ignored.")
-    redis_db.update_user_data(update.message.from_user.id, update.message.from_user.username)
+    redis_db.update_user_data(update.message.from_user)
     r.rpush(redis_db.RECEIVED_MESSAGES_LIST, update.message.text)
     redis_db.messages.append(update.message.text)
 

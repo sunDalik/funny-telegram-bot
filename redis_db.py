@@ -1,6 +1,7 @@
 import redis
 import json
 from _secrets import banned_user_ids
+from telegram import User
 
 _connection = None
 messages = []
@@ -41,19 +42,24 @@ def load_messages():
 def get_username_by_id(id) -> str:
     if id is None:
         return "???"
-    username = connect().hget(USER_ID_TO_NAME, id)
+    username = connect().hget(USER_ID_TO_NAME, str(id))
     username = username if username else str(id)
     return username
 
 
-def update_user_data(id, username):
+def update_user_data(user: User):
+    username = user.username
     if username is None:
-        return
-    connect().hset(USER_ID_TO_NAME, id, username)
+        username = user.first_name
+        if username is None:
+            return
+
+    connect().hset(USER_ID_TO_NAME, str(user.id), username)
 
 
 def reverse_lookup_id(username):
     username = username[1:] if username.startswith("@") else username
     for key, value in connect().hgetall(USER_ID_TO_NAME).items():
         if (value.lower() == username.lower()):
-            return key
+            return int(key)
+    return None

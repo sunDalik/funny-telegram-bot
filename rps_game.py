@@ -48,7 +48,7 @@ def format_playing_field(game_state) -> str:
 
 def clean_old_games():
     global games_data
-    MAX_GAMES = 20
+    MAX_GAMES = 10
     remove_games = max(0, len(games_data) - MAX_GAMES)
     games_data = games_data[remove_games:]
 

@@ -11,7 +11,10 @@ logger = logging.getLogger(__name__)
 def in_whitelist(update: Update, send_warning=True) -> bool:
     if (update.message.chat_id not in secrets_chat_ids):
         logger.warn(f"Blacklisted chat id: {update.message.chat_id}")
-        if send_warning:
+        # Bots have a global limit of 30 messages per second
+        # https://core.telegram.org/bots/faq#broadcasting-to-users
+        # We don't want to enable ddos attacks for blacklisted chats so we dont message them anything
+        if False and send_warning:
              update.message.reply_text("This chat is not whitelisted")
         return False
     return True

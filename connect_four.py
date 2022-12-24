@@ -5,7 +5,9 @@ import re
 from utils import in_whitelist, parse_userid
 import random
 import json
+import logging
 
+logger = logging.getLogger(__name__)
 r = redis_db.connect()
 
 games_data = []
@@ -177,7 +179,6 @@ def on_cf_action(update: Update, context: CallbackContext):
         query.answer()
         return
     
-
     prev_game_state = json.loads(json.dumps(game_state))
 
     col_index = int(query.data[3:]) - 1

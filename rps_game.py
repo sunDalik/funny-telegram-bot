@@ -133,7 +133,10 @@ def on_rps_action(update: Update, context: CallbackContext):
         if game_state['player_ids'][1] is None and query.from_user.id != game_state['player_ids'][0]:
             game_state['player_ids'][1] = query.from_user.id
             game_state['player_usernames'][1] = redis_db.get_username_by_id(query.from_user.id)
-            query.edit_message_text(text=format_playing_field(game_state), reply_markup=get_rps_keyboard(False))
+            try:
+                query.edit_message_text(text=format_playing_field(game_state), reply_markup=get_rps_keyboard(False))
+            except:
+                game_state['player_ids'][1] = None
         query.answer()
         return
 
@@ -146,6 +149,8 @@ def on_rps_action(update: Update, context: CallbackContext):
     if player_index < 0 or game_state["over"]:
         query.answer()
         return
+    
+    prev_game_state = json.loads(json.dumps(game_state))
 
     if (query.data == "rps_r"):
         game_state["decisions"][player_index] = "r"
@@ -182,14 +187,32 @@ def on_rps_action(update: Update, context: CallbackContext):
         else:
             game_state["current_round"] += 1 
 
-    query.answer()
     if game_state["over"]:
-        query.edit_message_text(text=format_playing_field(game_state))
-        games_data.remove(game_state)
+        edit_res = try_edit(query, game_state, None)
+        if edit_res:
+            games_data.remove(game_state)
+        else:
+            for index, state in enumerate(games_data):
+                if state == game_state:
+                    games_data[index] = prev_game_state
     else:
-        query.edit_message_text(text=format_playing_field(game_state), reply_markup=query.message.reply_markup)
+        edit_res = try_edit(query, game_state, query.message.reply_markup)
+        if not edit_res:
+            for index, state in enumerate(games_data):
+                if state == game_state:
+                    games_data[index] = prev_game_state
+
+
+def try_edit(query, game_state, reply_markup = None) -> bool:
+    try:
+        query.edit_message_text(text=format_playing_field(game_state), reply_markup=reply_markup)
+        query.answer()
+        return True
+    except:
+        query.answer("Не получилось обновить игру из-за защиты от спама :(")
+        return False
 
 
 def subscribe(u: Updater):
-    u.dispatcher.add_handler(CommandHandler("rps", start_rps))
+    u.dispatcher.add_handler(CommandHandler(("rps", "rockpaperscissors"), start_rps))
     u.dispatcher.add_handler(CallbackQueryHandler(on_rps_action, pattern="^rps_"))

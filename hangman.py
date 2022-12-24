@@ -147,7 +147,7 @@ def on_hangman_action(update: Update, context: CallbackContext):
             return
 
         if query.data == 'h_ok':
-            if len(game_state['answer']) <= 2:
+            if len(game_state['answer'].strip()) <= 2:
                 query.answer("Слишком короткое слово!")
                 return
             game_state['creator_id'] = None

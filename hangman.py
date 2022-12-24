@@ -105,7 +105,7 @@ def start_hangman(update: Update, context: CallbackContext):
     shuffled_messages = redis_db.messages.copy()
     random.shuffle(shuffled_messages)
     result = ""
-    word_regex = re.compile(r"^[А-Яа-яёЁ]{3,10}$")
+    word_regex = re.compile(r"^[А-Яа-яёЁ]{4,12}$")
     for rnd_message in shuffled_messages:
         words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
         for word in words:

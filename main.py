@@ -11,8 +11,9 @@ import slap_game
 import jerk_of_the_day
 import rps_game
 import connect_four
+import hangman
 import redis_db
-from utils import in_whitelist
+from utils import in_whitelist, PUNCTUATION_REGEX
 import difflib
 
 rfh = logging.handlers.RotatingFileHandler(filename='debug.log', mode='w', maxBytes=2*1024*1024, backupCount=0,)
@@ -22,11 +23,7 @@ logger = logging.getLogger(__name__)
 
 r = redis_db.connect()
 DICTIONARY_HASH = 'dictionary'
-RECEIVED_MESSAGES_LIST = 'received_messages_list'
-MESSAGES = []
 MAX_ITERS = 999_999
-# Don't include apostrophe
-PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 POLL_PREFIX =  "#!/Poll"
 STICKER_PREFIX =  "#!/Sticker"
@@ -222,7 +219,7 @@ def explain(update: Update, context):
     again_function = lambda: explain(update, context)
     definition = match.group(1)
     result = None
-    shuffled_messages = MESSAGES.copy()
+    shuffled_messages = redis_db.messages.copy()
     random.shuffle(shuffled_messages)
     for rnd_message in shuffled_messages:
         words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
@@ -250,7 +247,7 @@ def talk(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info("[talk]")
-    rnd_message = random.choice(MESSAGES)
+    rnd_message = random.choice(redis_db.messages)
     logger.info(f"  Result: {rnd_message}")
     update.message.reply_text(rnd_message, quote=False)
 
@@ -269,7 +266,7 @@ def opinion(update: Update, context):
     things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
     things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
     logger.info(f"  Parse result: {things}")
-    shuffled_messages = MESSAGES.copy()
+    shuffled_messages = redis_db.messages.copy()
     random.shuffle(shuffled_messages)
     for rnd_message in shuffled_messages:
         lower_message = rnd_message.lower()
@@ -327,32 +324,15 @@ def handle_normal_messages(update: Update, context):
     if (update.message.from_user.id in banned_user_ids):
         logger.info(f"  From banned user {update.message.from_user.id}. Ignored.")
     redis_db.update_user_data(update.message.from_user.id, update.message.from_user.username)
-    r.rpush(RECEIVED_MESSAGES_LIST, update.message.text)
-    MESSAGES.append(update.message.text)
+    r.rpush(redis_db.RECEIVED_MESSAGES_LIST, update.message.text)
+    redis_db.messages.append(update.message.text)
 
 if __name__ == '__main__':
     logger.info("Parsing messages...")
-    f = open('_secrets/messages.json')
-    data = json.load(f)
-    banned_user_ids_str = [str(id) for id in banned_user_ids]
-    for message in data['messages']:
-        if ("text_entities" in message):
-            text = "".join([txt.get("text") for txt in message.get("text_entities")])
-            # Ignore commands and messages from banned users
-            # Skip "user" prefix from id... Telegram export does this for some reason
-            if (text != "" and "from_id" in message and message['from_id'][4:] not in banned_user_ids_str and not text.startswith("/")):
-                MESSAGES.append(text)
-    f.close()
-
-    for message in r.lrange(RECEIVED_MESSAGES_LIST, 0, -1):
-        MESSAGES.append(message)
-    
-    if (len(MESSAGES) == 0):
-        # The bot assumes that the messages list is never empty so if there is none we put a default message there
-        MESSAGES.append("Привет!")
+    redis_db.load_messages()
 
     logger.info("Loading shitpost model...")
-    markovify_model = markovify.Text("\n".join(MESSAGES))
+    markovify_model = markovify.Text("\n".join(redis_db.messages))
 
     logger.info("Setting up telegram bot")
     u = Updater(secrets_bot_token, use_context=True)
@@ -374,6 +354,7 @@ if __name__ == '__main__':
     slap_game.subscribe(u)
     rps_game.subscribe(u)
     connect_four.subscribe(u)
+    hangman.subscribe(u)
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     
@@ -403,6 +384,7 @@ if __name__ == '__main__':
         ("slaprules", "review rules of the slap-game"),
         ("rps", "[person] play a rock-paper-scissors game with person"),
         ("cf", "[person] play a Connect 4 game with person"),
+        ("hangman", "play a Hangman game with the chat"),
         ("dice", "roll the dice"),
         ("slot", "gambling time"),
         ("contribute", "get github link"),

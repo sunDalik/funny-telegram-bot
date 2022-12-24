@@ -7,8 +7,6 @@ import re
 from utils import in_whitelist, parse_userid
 import random
 import json
-from datetime import datetime, timedelta, time
-import math
 import traceback
 
 r = redis_db.connect()

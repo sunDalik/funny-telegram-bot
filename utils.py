@@ -4,9 +4,12 @@ from telegram.ext import CallbackContext
 import logging
 import random
 import redis_db
+import re
 
 logger = logging.getLogger(__name__)
 
+# Don't include apostrophe
+PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
 
 def in_whitelist(update: Update, send_warning=True) -> bool:
     if (update.message.chat_id not in secrets_chat_ids):

@@ -397,7 +397,7 @@ if __name__ == '__main__':
         ("parry", "parry a slap within a minute to block it"),
         ("slapstats", "get all-time stats for the slap-game"),
         ("slaprules", "review rules of the slap-game"),
-        ("rps", "<person> play a rock-paper-scissors game with person"),
+        ("rps", "[person] play a rock-paper-scissors game with person"),
         ("dice", "roll the dice"),
         ("slot", "gambling time"),
         ("contribute", "get github link"),

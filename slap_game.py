@@ -211,7 +211,7 @@ def slap_stats(update: Update, context):
         return
     message = f"Вот статистика шлепунов.\nИгрок [Шлеп-счет]  (Успешные шлепки / Лечения / Парирования / Идеальные парирования)\n\n"
     i = 1
-    for k, v in dict(sorted(slappers_dict.items(), key=lambda item: item[1].get(SS_HEALTH, DEFAULT_HEALTH), reverse=True)).items():
+    for k, v in dict(sorted(slappers_dict.items(), key=lambda item: (item[1].get(SS_HEALTH, DEFAULT_HEALTH), item[1].get(SS_TOTAL_SLAPS, 0), item[1].get(SS_TOTAL_HEALS, 0), item[1].get(SS_TOTAL_PARRIES, 0), item[1].get(SS_TOTAL_PERFECT_PARRIES, 0)), reverse=True)).items():
         username_markdown = k
         username_markdown = f"<b>{username_markdown}</b>" if is_cooldown_active(v.get(SS_VULNERABLE_DATE)) else username_markdown
         username_markdown = f"<i>{username_markdown}</i>" if is_cooldown_active(v.get(SS_MADE_ACTION_DATE)) else username_markdown
@@ -254,5 +254,5 @@ def subscribe(u: Updater):
     u.dispatcher.add_handler(CommandHandler("parry", parry))
     u.dispatcher.add_handler(CommandHandler("slapstats", slap_stats))
     u.dispatcher.add_handler(CommandHandler("slaprules", slap_rules))
-    #u.dispatcher.add_handler(CommandHandler("resetmyslap", reset_my_slap))
+    u.dispatcher.add_handler(CommandHandler("resetmyslap", reset_my_slap))
     pass

@@ -186,12 +186,12 @@ def on_hangman_action(update: Update, context: CallbackContext):
 
     prev_game_state = json.loads(json.dumps(game_state))
     game_state['guesses'].append(letter)
-    game_state['last_action'] = f"{redis_db.get_username_by_id(query.from_user.id)} выбрал букву {letter.upper()}. "
+    game_state['last_action'] = f"{redis_db.get_username_by_id(query.from_user.id)} выбрал букву {letter.upper()}.  "
 
     if letter in game_state['answer']:
-        game_state['last_action'] += "Верно 😊"
+        game_state['last_action'] += "✅"
     else:
-        game_state['last_action'] += "Неверно 💀"
+        game_state['last_action'] += "❌"
         game_state['incorrect_guesses'] += 1
     
     

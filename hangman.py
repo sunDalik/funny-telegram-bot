@@ -14,7 +14,7 @@ games_data = []
 MAX_INCORRECT_GUESSES = 8
 
 def format_playing_field(game_state) -> str:
-    if game_state['creator_id'] is not None:
+    if game_state['creation']:
         return f"{redis_db.get_username_by_id(game_state['creator_id'])} загадывает слово..."
     text = ""
     if game_state['incorrect_guesses'] >= MAX_INCORRECT_GUESSES:
@@ -109,7 +109,7 @@ def get_hangman_keyboard(guesses, creation_phase: bool) -> InlineKeyboardMarkup:
 def start_hangman(update: Update, context: CallbackContext):
     if (not in_whitelist(update)):
         return
-    new_game_state = {"message_id": "", "answer": "", "guesses": [], "incorrect_guesses": 0, "last_action": "Игра началась!\n", "last_user_id": -1, "creator_id": update.message.from_user.id}
+    new_game_state = {"message_id": "", "answer": "", "guesses": [], "incorrect_guesses": 0, "last_action": "Игра началась!\n", "last_user_id": -1, "creator_id": update.message.from_user.id, "creation": True}
     message = update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_hangman_keyboard([], True), quote=False)
     new_game_state["message_id"] = str(message.chat_id) + "/" + str(message.message_id)
     games_data.append(new_game_state)
@@ -117,7 +117,7 @@ def start_hangman(update: Update, context: CallbackContext):
 
 
 def is_game_won(game_state) -> bool:
-    if game_state['creator_id'] is not None:
+    if game_state['creation']:
         return False
     for c in game_state['answer']:
         if c != " " and c.lower() not in game_state['guesses']:
@@ -141,7 +141,7 @@ def on_hangman_action(update: Update, context: CallbackContext):
         query.answer("Не могу найти данные этой игры :(")
         return
     
-    if game_state['creator_id'] is not None:
+    if game_state['creation']:
         if query.from_user.id != game_state['creator_id']:
             query.answer()
             return
@@ -150,10 +150,10 @@ def on_hangman_action(update: Update, context: CallbackContext):
             if len(game_state['answer'].strip()) <= 2:
                 query.answer("Слишком короткое слово!")
                 return
-            game_state['creator_id'] = None
+            game_state['creation'] = False
             edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses'], False))
             if not edit_res:
-                game_state['creator_id'] = query.from_user.id
+                game_state['creation'] = True
             query.answer()
             return
         elif query.data == 'h_del':
@@ -173,6 +173,10 @@ def on_hangman_action(update: Update, context: CallbackContext):
 
     if game_state["incorrect_guesses"] >= MAX_INCORRECT_GUESSES or is_game_won(game_state):
         query.answer()
+        return
+    
+    if query.from_user.id == game_state['creator_id']:
+        query.answer("Ты не можешь угадывать в своей игре!")
         return
     
     if query.from_user.id == game_state['last_user_id']:

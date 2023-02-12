@@ -298,8 +298,11 @@ def getAll(update: Update, context):
             update.message.reply_text(f"Я пока не знаю никаких гетов... Но ты можешь их добавить командой /set!", quote=False)
             return
     header = 'Так вот же все ГЕТЫ:\n\n' if must_start_with == "" else f'Вот все ГЕТЫ, начинающиеся с \"{must_start_with}\":\n\n'
-    response = ", ".join(keys)
-    update.message.reply_text(header + response, quote=False)
+    response = header + ", ".join(keys)
+    # Telegram has a limit of 4096 characters per message and it doesn't split them automatically
+    msgs = [response[i:i + 4096] for i in range(0, len(response), 4096)]
+    for text in msgs:
+        update.message.reply_text(text, quote=False)
 
 
 def error(update: Update, context):

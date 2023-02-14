@@ -107,7 +107,11 @@ def get_jerk_stats(update: Update, context):
     jerks_dict = {}
     for key in r.hgetall(JERKS):
         winner_username = redis_db.get_username_by_id(key)
-        jerks_dict[winner_username] = r.hget(JERKS, key)
+        win_count = r.hget(JERKS, key)
+        try:
+            jerks_dict[winner_username] = int(win_count) if win_count is not None else None 
+        except ValueError:
+            jerks_dict[winner_username] = win_count 
     message = f"Вот статистика {get_daily_jerk_word()[2]}:\n"
     i = 1
     for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():

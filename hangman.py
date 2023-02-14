@@ -53,8 +53,8 @@ def clean_old_games():
     games_data = games_data[remove_games:]
 
 
-def get_hangman_keyboard(guesses, creation_phase: bool) -> InlineKeyboardMarkup:
-    keyboard_ru = [
+def get_hangman_keyboard(guesses, creation_phase: bool, lang: str) -> InlineKeyboardMarkup:
+    keyboard = [
         [
             InlineKeyboardButton("А", callback_data="h_а"),
             InlineKeyboardButton("Б", callback_data="h_б"),
@@ -95,22 +95,57 @@ def get_hangman_keyboard(guesses, creation_phase: bool) -> InlineKeyboardMarkup:
             InlineKeyboardButton("Ю", callback_data="h_ю"),
             InlineKeyboardButton("Я", callback_data="h_я"),
         ],
+    ] if lang == "ru" else [
+        [
+            InlineKeyboardButton("A", callback_data="h_a"),
+            InlineKeyboardButton("B", callback_data="h_b"),
+            InlineKeyboardButton("C", callback_data="h_c"),
+            InlineKeyboardButton("D", callback_data="h_d"),
+            InlineKeyboardButton("E", callback_data="h_e"),
+            InlineKeyboardButton("F", callback_data="h_f"),
+            InlineKeyboardButton("G", callback_data="h_g"),
+        ],
+        [
+            InlineKeyboardButton("H", callback_data="h_h"),
+            InlineKeyboardButton("I", callback_data="h_i"),
+            InlineKeyboardButton("J", callback_data="h_j"),
+            InlineKeyboardButton("K", callback_data="h_k"),
+            InlineKeyboardButton("L", callback_data="h_l"),
+            InlineKeyboardButton("M", callback_data="h_m"),
+            InlineKeyboardButton("N", callback_data="h_n"),
+        ],
+        [
+            InlineKeyboardButton("O", callback_data="h_o"),
+            InlineKeyboardButton("P", callback_data="h_p"),
+            InlineKeyboardButton("Q", callback_data="h_q"),
+            InlineKeyboardButton("R", callback_data="h_r"),
+            InlineKeyboardButton("S", callback_data="h_s"),
+            InlineKeyboardButton("T", callback_data="h_t"),
+            InlineKeyboardButton("U", callback_data="h_u"),
+        ],
+        [
+            InlineKeyboardButton("V", callback_data="h_v"),
+            InlineKeyboardButton("W", callback_data="h_w"),
+            InlineKeyboardButton("X", callback_data="h_x"),
+            InlineKeyboardButton("Y", callback_data="h_y"),
+            InlineKeyboardButton("Z", callback_data="h_z"),
+        ],
     ]
-    for index, row in enumerate(keyboard_ru):
-        keyboard_ru[index] = [button for button in row if button.text.lower() not in guesses]
+    for index, row in enumerate(keyboard):
+        keyboard[index] = [button if button.text.lower() not in guesses else InlineKeyboardButton(" ", callback_data="h_blank") for button in row]
 
     if creation_phase:
-        keyboard_ru.append([InlineKeyboardButton("Пробел", callback_data="h_ ")])
-        keyboard_ru.append([InlineKeyboardButton("DEL", callback_data="h_del"), InlineKeyboardButton("🆗", callback_data="h_ok")],)
+        keyboard.append([InlineKeyboardButton("Пробел" if lang == "ru" else "Space", callback_data="h_ ")])
+        keyboard.append([InlineKeyboardButton("DEL", callback_data="h_del"), InlineKeyboardButton("🆗", callback_data="h_ok")],)
 
-    return InlineKeyboardMarkup(keyboard_ru)
+    return InlineKeyboardMarkup(keyboard)
 
 
-def start_hangman(update: Update, context: CallbackContext):
+def start_hangman(update: Update, context: CallbackContext, lang: str):
     if (not in_whitelist(update)):
         return
-    new_game_state = {"message_id": "", "answer": "", "guesses": [], "incorrect_guesses": 0, "last_action": "Игра началась!\n", "last_user_id": None, "creator_id": update.message.from_user.id, "creation": True}
-    message = update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_hangman_keyboard([], True), quote=False)
+    new_game_state = {"message_id": "", "answer": "", "guesses": [], "incorrect_guesses": 0, "last_action": "Игра началась!\n", "last_user_id": None, "creator_id": update.message.from_user.id, "creation": True, "l": lang}
+    message = update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_hangman_keyboard([], True, lang), quote=False)
     new_game_state["message_id"] = str(message.chat_id) + "/" + str(message.message_id)
     games_data.append(new_game_state)
     clean_old_games()
@@ -129,6 +164,10 @@ def on_hangman_action(update: Update, context: CallbackContext):
     query = update.callback_query
     # Not checking for whitelist because its broken with callback query...
     # But we still check if the message from query exists in our database so all is good!
+
+    if query.data == 'h_blank':
+        query.answer()
+        return
 
     game_state = None
     message_id = str(query.message.chat_id) + "/" + str(query.message.message_id)
@@ -151,7 +190,7 @@ def on_hangman_action(update: Update, context: CallbackContext):
                 query.answer("Слишком короткое слово!")
                 return
             game_state['creation'] = False
-            edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses'], False))
+            edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses'], False, game_state['l']))
             if not edit_res:
                 game_state['creation'] = True
             query.answer()
@@ -209,7 +248,7 @@ def on_hangman_action(update: Update, context: CallbackContext):
                 if state == game_state:
                     games_data[index] = prev_game_state
     else:
-        edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses'], False))
+        edit_res = try_edit(query, game_state, get_hangman_keyboard(game_state['guesses'], False, game_state['l']))
         if not edit_res:
             for index, state in enumerate(games_data):
                 if state == game_state:
@@ -232,5 +271,6 @@ def try_edit(query, game_state, reply_markup = None) -> bool:
 
 
 def subscribe(u: Updater):
-    u.dispatcher.add_handler(CommandHandler(("hangman"), start_hangman))
+    u.dispatcher.add_handler(CommandHandler(("hangman"), lambda update, context: start_hangman(update, context, "ru")))
+    u.dispatcher.add_handler(CommandHandler(("hangman_english"), lambda update, context: start_hangman(update, context, "en")))
     u.dispatcher.add_handler(CallbackQueryHandler(on_hangman_action, pattern="^h_"))

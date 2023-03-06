@@ -15,7 +15,7 @@ def random_cope(update: Update, context):
     if (not in_whitelist(update)):
         return
     options = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33]
-    weights = [100, 100, 100, 100, 60, 0.1, 100, 4, 50, 10, 2, 3, 40, 10, 20, 1, 7, 6, 6, 1.5, 1.5, 35, 20, 90, 60, 95, 100, 10, 1, 0.5, 0.5, 0.5, 0.5]
+    weights = [100, 100, 100, 100, 60, 0.1, 100, 4, 50, 15, 3, 3, 40, 15, 20, 1, 6, 6, 6, 1.5, 1.5, 35, 20, 90, 50, 90, 100, 12, 1, 0.5, 0.5, 0.5, 0.5]
     res = random.choices(options, weights=weights)[0]
     if res == 1:
         update.message.reply_text(f"Найс коупишь", quote=False)
@@ -28,7 +28,7 @@ def random_cope(update: Update, context):
     elif res == 5:
         update.message.reply_text(f"Коуп отвратительный", quote=False)
     elif res == 6:
-        update.message.reply_text(f"ЛЕГЕНДАРНЫЙ КОУП\nЭтот коуп войдет в историю!", quote=False)
+        update.message.reply_text(f"=== ЛЕГЕНДАРНЫЙ КОУП ===\nЭтот коуп войдет в историю!\nПоздравляем @{update.message.from_user.username} с получением этого невероятного редкого коупа", quote=False)
     elif res == 7:
         update.message.reply_text(f"Коуп слабый\nКоупи сильнее", quote=False)
     elif res == 8:

@@ -12,6 +12,7 @@ import jerk_of_the_day
 import rps_game
 import connect_four
 import hangman
+import random_cope
 import redis_db
 from utils import in_whitelist, PUNCTUATION_REGEX
 import difflib
@@ -330,6 +331,16 @@ def handle_normal_messages(update: Update, context):
     r.rpush(redis_db.RECEIVED_MESSAGES_LIST, update.message.text)
     redis_db.messages.append(update.message.text)
 
+
+def debug_file_id(update: Update, context):
+    if (not in_whitelist(update, send_warning=False)):
+        return
+    if update.message.sticker is not None:
+        logger.info(f"{update.message.sticker.file_id}")
+    elif update.message.animation is not None:
+        logger.info(f"{update.message.animation.file_id}")
+
+
 if __name__ == '__main__':
     logger.info("Parsing messages...")
     redis_db.load_messages()
@@ -358,10 +369,12 @@ if __name__ == '__main__':
     rps_game.subscribe(u)
     connect_four.subscribe(u)
     hangman.subscribe(u)
+    random_cope.subscribe(u)
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     
     u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_normal_messages))
+    #u.dispatcher.add_handler(MessageHandler(Filters.sticker | Filters.animation, debug_file_id))
     u.dispatcher.add_error_handler(error)
 
     u.bot.set_my_commands([
@@ -391,6 +404,7 @@ if __name__ == '__main__':
         ("hangman_english", "play a Hangman game with the chat [EN]"),
         ("dice", "roll the dice"),
         ("slot", "gambling time"),
+        ("cope", "how hard can you cope?"),
         ("contribute", "get github link"),
     ])
 

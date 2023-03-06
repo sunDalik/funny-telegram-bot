@@ -14,8 +14,8 @@ r = redis_db.connect()
 def random_cope(update: Update, context):
     if (not in_whitelist(update)):
         return
-    options = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]
-    weights = [100, 100, 100, 100, 60, 0.1, 100, 5, 50, 10, 2, 3, 40, 10, 20, 1, 7, 6, 6, 1.5, 1.5, 35, 20, 90, 70, 95, 100, 10]
+    options = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33]
+    weights = [100, 100, 100, 100, 60, 0.1, 100, 4, 50, 10, 2, 3, 40, 10, 20, 1, 7, 6, 6, 1.5, 1.5, 35, 20, 90, 60, 95, 100, 10, 1, 0.5, 0.5, 0.5, 0.5]
     res = random.choices(options, weights=weights)[0]
     if res == 1:
         update.message.reply_text(f"Найс коупишь", quote=False)
@@ -105,6 +105,27 @@ def random_cope(update: Update, context):
         update.message.reply_text(f"Удовлетворительный коуп", quote=False)
     elif res == 28:
         update.message.reply_text(f"Взорванный коуп!", quote=False)
+    elif res == 29:
+        update.message.reply_text(f"Хорош коупить, погнали лучше в казиныч!\nЗаодно посмотрим насколько хорошо твой коуп сможет выбить нам 3 лимона", quote=False)
+        sleep(0.5)
+        update.message.reply_dice(emoji="🎰", quote=False)
+    elif res == 30:
+        update.message.reply_text(f"Хорош коупить, погнали лучше в боулинг!\nЗаодно посмотрим насколько хорошо твой коуп умеет выбивать кегли", quote=False)
+        sleep(0.5)
+        update.message.reply_dice(emoji="🎳", quote=False)
+    elif res == 31:
+        update.message.reply_text(f"Хорош коупить, погнали лучше в дартс!\nЗаодно посмотрим насколько хорошо твой коуп попадает в яблочко!", quote=False)
+        sleep(0.5)
+        update.message.reply_dice(emoji="🎯", quote=False)
+    elif res == 32:
+        update.message.reply_text(f"Хорош коупить, погнали лучше в футбол!\nЗаодно посмотрим насколько хорошо твой коуп залетает в ворота", quote=False)
+        sleep(0.5)
+        update.message.reply_dice(emoji="⚽", quote=False)
+    elif res == 33:
+        update.message.reply_text(f"Хорош коупить, погнали лучше в баскетбол!\nЗаодно посмотрим насколько хорошо твой коуп залетает в корзину", quote=False)
+        sleep(0.5)
+        update.message.reply_dice(emoji="🏀", quote=False)
+
 
 
 def subscribe(u: Updater):

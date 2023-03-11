@@ -11,6 +11,7 @@ import slap_game
 import jerk_of_the_day
 import rps_game
 import connect_four
+import party
 import hangman
 import random_cope
 import redis_db
@@ -370,6 +371,8 @@ if __name__ == '__main__':
     connect_four.subscribe(u)
     hangman.subscribe(u)
     random_cope.subscribe(u)
+    party.subscribe(u)
+
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     
@@ -406,6 +409,15 @@ if __name__ == '__main__':
         ("slot", "gambling time"),
         ("cope", "how hard can you cope?"),
         ("contribute", "get github link"),
+        ("partycreate", "<game name> <people count for notification>"),
+        ("partylist", "show parties"),
+        ("party", "<game name> (join party)"),
+        ("partydelete", "<game name>"),
+        ("partypingunregister", "<game name> (you won't be mentioned in /partyping)"),
+        ("partyleave", "<game name>"),
+        ("partyping", "<game name> ping all people that joined party at least once before but are not joined now"),
+        ("partypingall", "<game name> ping all people that joined party at least once"),
+        ("partyinfo", "<game name> get info about game party"),
     ])
 
     logger.info("Started polling for updates")

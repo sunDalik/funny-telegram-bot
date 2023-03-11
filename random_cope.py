@@ -38,7 +38,7 @@ def random_cope(update: Update, context):
     elif res == 10:
         update.message.reply_text(f"Удачный коуп!\nМожешь еще раз покоупить", quote=False)
     elif res == 11:
-        update.message.reply_text(f"Этот божественный коуп настолько силен, что способен излучать ауру добра и позитива, который увеличивает силу коупа друзей на 50%", quote=False)
+        update.message.reply_text(f"Этот божественный коуп настолько силен, что способен излучать ауру добра и позитива, которая увеличивает силу коупа друзей на 50%", quote=False)
     elif res == 12:
         update.message.reply_text(f"Выбираем главного коупера дня", quote=False)
         sleep(1.5)

@@ -233,15 +233,14 @@ def party_ping_all(update: Update, context):
 def on_join_button_press(update: Update, ctx):
     query = update.callback_query
     # Not checking for whitelist because its broken with callback query...
-
-    if not query.data.startswith("join_party"):
-        return
     
     args = query.data.split()
     game_name = args[1]
     if not r.hexists(PARTIES, game_name):
+        query.answer()
         return
     
+    query.answer(f"Добавил тебя в пати {game_name}")
     join_party(game_name, query.from_user.username, update, True)
     
 

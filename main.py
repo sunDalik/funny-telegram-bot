@@ -415,8 +415,7 @@ if __name__ == '__main__':
         ("partydelete", "<game name>"),
         ("partypingunregister", "<game name> (you won't be mentioned in /partyping)"),
         ("partyleave", "<game name>"),
-        ("partyping", "<game name> ping all people that joined party at least once before but are not joined now"),
-        ("partypingall", "<game name> ping all people that joined party at least once"),
+        ("partypinginvite", "<game name> ping all people that joined party at least once before but are not joined now"),
         ("partyinfo", "<game name> get info about game party"),
     ])
 

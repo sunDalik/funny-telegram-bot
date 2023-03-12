@@ -76,12 +76,11 @@ def party_join(update: Update, context):
     logger.info('[party_join]')
 
     game_name = get_game_name_from_msg_if_exists_or_send_error_reply(update)
-    if (game_name == None):
+    if game_name is None:
         return
 
     logger.info(f'[party_join] {game_name}')
-    username = update.message.from_user.username
-    join_party(game_name, username, update, True)
+    join_party(game_name, update.message.from_user.id, update, True)
 
 
 def party_delete(update: Update, context):
@@ -90,7 +89,7 @@ def party_delete(update: Update, context):
     logger.info('[party_delete]')
 
     game_name = get_game_name_from_msg_if_exists_or_send_error_reply(update)
-    if (game_name == None):
+    if game_name is None:
         return
 
     logger.info(f'[party_delete] {game_name}')
@@ -104,23 +103,23 @@ def party_ping_unregister(update: Update, context):
     logger.info('[party_ping_unregister]')
 
     game_name = get_game_name_from_msg_if_exists_or_send_error_reply(update)
-    if (game_name == None):
+    if game_name is None:
         return
 
     logger.info(f'[party_ping_unregister] {game_name}')
 
     party = load_party(game_name)
     party = daily_party_reset_if_needed(game_name, party)
-    username = update.message.from_user.username
-    if username not in party[NOTIFICATIONS_RECEIVERS]:
+    user_id = update.message.from_user.id
+    if user_id not in party[NOTIFICATIONS_RECEIVERS]:
         update.message.reply_text(f"Ты и так не получаешь уведомления {game_name} пати", quote=False)
         return
     else:
-        party[NOTIFICATIONS_RECEIVERS].remove(username)
+        party[NOTIFICATIONS_RECEIVERS].remove(user_id)
 
 
     save_party(game_name, party)
-    update.message.reply_text(f"Ты больше не будешь получать нотификации о пати для {game_name}... Пока снова не зайдешь в пати", quote=False)
+    update.message.reply_text(f"Ты больше не будешь получать уведомления о пати для {game_name}... Пока снова не зайдешь в пати", quote=False)
 
 def party_leave(update: Update, context):
     if not in_whitelist(update):
@@ -128,37 +127,36 @@ def party_leave(update: Update, context):
     logger.info('[party_leave]')
 
     game_name = get_game_name_from_msg_if_exists_or_send_error_reply(update)
-    if (game_name == None):
+    if game_name is None:
         return
 
     logger.info(f'[party_leave] {game_name}')
 
     party = load_party(game_name)
     party = daily_party_reset_if_needed(game_name, party)
-    username = update.message.from_user.username
-    if username not in party[CUR_PEOPLE_JOINED]:
+    user_id = update.message.from_user.id
+    if user_id not in party[CUR_PEOPLE_JOINED]:
         update.message.reply_text(f"Ты и так не в пати", quote=False)
         return
     else:
-        party[CUR_PEOPLE_JOINED].remove(username)
-
+        party[CUR_PEOPLE_JOINED].remove(user_id)
 
     save_party(game_name, party)
     cur_people_joined_count = len(party[CUR_PEOPLE_JOINED])
     required_people_count = party[REQUIRED_PEOPLE_COUNT]
     update.message.reply_text(f"Ты ливнул из пати для {game_name}...\nТеперь в пати {cur_people_joined_count}/{required_people_count} челов", quote=False)
 
-# Can be combined somehow with party_ping_all but I am too lazy
-def party_ping(update: Update, context):
+
+def party_ping_invite(update: Update, context):
     if not in_whitelist(update):
         return
-    logger.info('[party_ping]')
+    logger.info('[party_ping_invite]')
 
     game_name = get_game_name_from_msg_if_exists_or_send_error_reply(update)
-    if (game_name == None):
+    if game_name is None:
         return
 
-    logger.info(f'[party_ping] {game_name}')
+    logger.info(f'[party_ping_invite] {game_name}')
 
     party = load_party(game_name)
     party = daily_party_reset_if_needed(game_name, party)
@@ -166,9 +164,8 @@ def party_ping(update: Update, context):
     notifications_receivers = party[NOTIFICATIONS_RECEIVERS]
     regular_players_that_are_not_joined = list(set(notifications_receivers) - set(cur_people_joined))
     reply_text = f"Пингую всех, кто когда либо был в {game_name} пати, но сейчас не джойнут\n"
-    for username in regular_players_that_are_not_joined:
-        reply_text = reply_text + f"@{username} "
-    reply_text = reply_text + f"\n\nЕсли ты не хочешь быть в этом списке, юзай /partypingunregister"
+    reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in regular_players_that_are_not_joined])
+    reply_text += f"\n\nЕсли ты не хочешь быть в этом списке, юзай /partypingunregister"
 
     update.message.reply_text(reply_text, quote=False)
 
@@ -192,46 +189,20 @@ def party_info(update: Update, context):
     notifications_receivers = party[NOTIFICATIONS_RECEIVERS]
 
     reply_text = f"Инфа по пати на {game_name}:\n"
-    reply_text = reply_text + f"{cur_people_joined_count}/{required_people_count} челов хотят сегодня зарубить\n"
+    reply_text = reply_text + f"{cur_people_joined_count}/{required_people_count} челов хотят сегодня зарубить"
 
     if cur_people_joined_count != 0:
-        reply_text = reply_text + f"А именно: "
-        for username in cur_people_joined:
-            reply_text = reply_text + f"{username} "
-        reply_text = reply_text + "\n"
+        reply_text = reply_text + f"\nА именно: "
+        reply_text += ', '.join([redis_db.get_username_by_id(id) for id in cur_people_joined])
     
     if len(notifications_receivers) != 0:
         regular_players_that_are_not_joined = list(set(notifications_receivers) - set(cur_people_joined))
         if len(regular_players_that_are_not_joined) > 0:
-            reply_text = reply_text + f"Раньше играли, а щас отлынивают: "
-            for username in regular_players_that_are_not_joined:
-                reply_text = reply_text + f"{username} "
-            reply_text = reply_text + "\n"
+            reply_text = reply_text + f"\n\nРаньше играли, а щас отлынивают: "
+            reply_text += ', '.join([redis_db.get_username_by_id(id) for id in regular_players_that_are_not_joined])
 
     update.message.reply_text(reply_text, quote=False)
 
-
-# Can be combined somehow with party_ping but I am too lazy
-def party_ping_all(update: Update, context):
-    if not in_whitelist(update):
-        return
-    logger.info('[party_ping]')
-
-    game_name = get_game_name_from_msg_if_exists_or_send_error_reply(update)
-    if (game_name == None):
-        return
-
-    logger.info(f'[party_ping] {game_name}')
-
-    party = load_party(game_name)
-    party = daily_party_reset_if_needed(game_name, party)
-    username = update.message.from_user.username
-    reply_text = f"Пингую всех, кто когда либо был в {game_name} пати.\n"
-    for username in party[NOTIFICATIONS_RECEIVERS]:
-        reply_text = reply_text + f"@{username} "
-    reply_text = reply_text + f"\n\nЕсли ты не хочешь быть в этом списке, юзай /partypingunregister"
-
-    update.message.reply_text(reply_text, quote=False)
 
 def on_join_button_press(update: Update, ctx):
     query = update.callback_query
@@ -244,7 +215,7 @@ def on_join_button_press(update: Update, ctx):
         return
     
     query.answer(f"Добавил тебя в пати {game_name}")
-    join_party(game_name, query.from_user.username, update, False)
+    join_party(game_name, query.from_user.id, update, False)
     
 
 
@@ -254,15 +225,13 @@ def on_join_button_press(update: Update, ctx):
 def subscribe(u: Updater):
     u.dispatcher.add_handler(CommandHandler("partycreate", party_create))
     u.dispatcher.add_handler(CommandHandler("partylist", party_list))
-    u.dispatcher.add_handler(CommandHandler("party", party_join))
+    u.dispatcher.add_handler(CommandHandler(("party", "partyjoin"), party_join))
     u.dispatcher.add_handler(CommandHandler("partydelete", party_delete)) #not tested
     u.dispatcher.add_handler(CommandHandler("partypingunregister", party_ping_unregister)) #not tested
     u.dispatcher.add_handler(CommandHandler("partyleave", party_leave)) #not tested
-    u.dispatcher.add_handler(CommandHandler("partyping", party_ping)) #not tested
-    u.dispatcher.add_handler(CommandHandler("partypingall", party_ping_all)) #not tested
+    u.dispatcher.add_handler(CommandHandler("partypinginvite", party_ping_invite)) #not tested
     u.dispatcher.add_handler(CommandHandler("partyinfo", party_info)) #not tested
     u.dispatcher.add_handler(CallbackQueryHandler(on_join_button_press, pattern="^join_party"))
-    pass
 
 
 # ----------------- Helpers functions for readability ---------------
@@ -324,40 +293,38 @@ def add_join_button(game_name: str):
     markup = InlineKeyboardMarkup(keyboard)
     return markup
 
-def join_party(game_name: str, username: str, update: Update, send_reply: bool):
+def join_party(game_name: str, user_id: int, update: Update, send_reply: bool):
     party = load_party(game_name)
     party = daily_party_reset_if_needed(game_name, party)
     required_people_count = party[REQUIRED_PEOPLE_COUNT]
-    username = username
 
-    if username not in party[CUR_PEOPLE_JOINED]:
-        party[CUR_PEOPLE_JOINED].append(username)
+    if user_id not in party[CUR_PEOPLE_JOINED]:
+        party[CUR_PEOPLE_JOINED].append(user_id)
     else:
         if send_reply:
             update.message.reply_text("Ты уже в пати", quote=False)
         return
 
-    if username not in party[NOTIFICATIONS_RECEIVERS]:
-        party[NOTIFICATIONS_RECEIVERS].append(username)
+    if user_id not in party[NOTIFICATIONS_RECEIVERS]:
+        party[NOTIFICATIONS_RECEIVERS].append(user_id)
 
     save_party(game_name, party)
     cur_people_count = len(party[CUR_PEOPLE_JOINED])
 
-    if (required_people_count == cur_people_count):
+    if cur_people_count == required_people_count:
         party_ready_reply_text = f"Пати для {game_name} набралась!\n"
-        for joined_user_username in party[CUR_PEOPLE_JOINED]:
-            party_ready_reply_text = party_ready_reply_text + f"@{joined_user_username} "
+        party_ready_reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in party[CUR_PEOPLE_JOINED]])
         update.message.reply_text(party_ready_reply_text, quote=False)
         return
     
     if not send_reply:
         return
     
-    if (required_people_count < cur_people_count):
+    if cur_people_count > required_people_count:
         update.message.reply_text(f"Людей уже больше чем нужно! Жесть", quote=False)
         return
 
-    if (required_people_count > cur_people_count):
+    if cur_people_count < required_people_count:
         update.message.reply_text(f"Ты зашел в пати!\nЖдем еще {required_people_count - cur_people_count} челов", quote=False, reply_markup = add_join_button(game_name))
         return
 

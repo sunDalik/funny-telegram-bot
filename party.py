@@ -169,6 +169,27 @@ def party_ping_invite(update: Update, context):
 
     update.message.reply_text(reply_text, quote=False)
 
+
+def party_ping(update: Update, context):
+    if not in_whitelist(update):
+        return
+    logger.info('[party_ping]')
+
+    game_name = get_game_name_from_msg_if_exists_or_send_error_reply(update)
+    if game_name is None:
+        return
+
+    logger.info(f'[party_ping] {game_name}')
+
+    party = load_party(game_name)
+    party = daily_party_reset_if_needed(game_name, party)
+    cur_people_joined = party[CUR_PEOPLE_JOINED]
+    reply_text = f"{game_name}\n"
+    reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in cur_people_joined])
+
+    update.message.reply_text(reply_text, quote=False)
+
+
 def party_info(update: Update, context):
     if not in_whitelist(update):
         return
@@ -216,7 +237,6 @@ def on_join_button_press(update: Update, ctx):
     
     query.answer(f"Добавил тебя в пати {game_name}")
     join_party(game_name, query.from_user.id, update, False)
-    
 
 
 
@@ -229,6 +249,7 @@ def subscribe(u: Updater):
     u.dispatcher.add_handler(CommandHandler("partydelete", party_delete)) #not tested
     u.dispatcher.add_handler(CommandHandler("partypingunregister", party_ping_unregister)) #not tested
     u.dispatcher.add_handler(CommandHandler("partyleave", party_leave)) #not tested
+    u.dispatcher.add_handler(CommandHandler("partyping", party_ping)) #not tested
     u.dispatcher.add_handler(CommandHandler("partypinginvite", party_ping_invite)) #not tested
     u.dispatcher.add_handler(CommandHandler("partyinfo", party_info)) #not tested
     u.dispatcher.add_handler(CallbackQueryHandler(on_join_button_press, pattern="^join_party"))
@@ -266,7 +287,7 @@ def daily_party_reset_if_needed(game_name: str, party):
     cur_datetime = datetime.now()
     cur_datetime_str = cur_datetime.strftime(datetime_format)
 
-    if (last_touched == None):
+    if last_touched is None:
         # should be changed to inner function
         party[LAST_TOUCHED_DATETIME] = cur_datetime_str
         party[CUR_PEOPLE_JOINED] = []

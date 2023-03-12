@@ -409,14 +409,15 @@ if __name__ == '__main__':
         ("slot", "gambling time"),
         ("cope", "how hard can you cope?"),
         ("contribute", "get github link"),
-        ("partycreate", "<game name> <people count for notification>"),
-        ("partylist", "show parties"),
-        ("party", "<game name> (join party)"),
-        ("partydelete", "<game name>"),
-        ("partypingunregister", "<game name> (you won't be mentioned in /partyping)"),
-        ("partyleave", "<game name>"),
-        ("partypinginvite", "<game name> ping all people that joined party at least once before but are not joined now"),
-        ("partyinfo", "<game name> get info about game party"),
+        ("partycreate", "<name> <people count for notification> create a new party"),
+        ("partylist", "show all parties"),
+        ("party", "<name> join party"),
+        ("partydelete", "<name> delete a party"),
+        ("partypingunregister", "<name> unregister for notifications in /partypinginvite"),
+        ("partyleave", "<name>"),
+        ("partyping", "<name> ping all current party members"),
+        ("partypinginvite", "<name> ping all former party members that are not joined now"),
+        ("partyinfo", "<name> get info about game party"),
     ])
 
     logger.info("Started polling for updates")

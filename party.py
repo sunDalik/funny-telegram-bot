@@ -163,6 +163,9 @@ def party_ping_invite(update: Update, context):
     cur_people_joined = party[CUR_PEOPLE_JOINED]
     notifications_receivers = party[NOTIFICATIONS_RECEIVERS]
     regular_players_that_are_not_joined = list(set(notifications_receivers) - set(cur_people_joined))
+    if len(regular_players_that_are_not_joined) == 0:
+        update.message.reply_text(f"Никого не забыли, абсолютно все сейчас в пати {game_name}!", quote=False)
+        return
     reply_text = f"Пингую всех, кто когда либо был в {game_name} пати, но сейчас не джойнут\n"
     reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in regular_players_that_are_not_joined])
     reply_text += f"\n\nЕсли ты не хочешь быть в этом списке, юзай /partypingunregister"

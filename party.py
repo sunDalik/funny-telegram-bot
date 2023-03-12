@@ -59,7 +59,7 @@ def party_list(update: Update, context):
     if len(parties.keys()) == 0:
         update.message.reply_text("Пати нет... Но ты можешь их создать командой /partycreate!", quote=False)
         return
-    reply_text = "Список всех пати\n"
+    reply_text = "Список всех пати:\n"
     for game_name, party_json in parties.items():
         party = json.loads(party_json)
         party = daily_party_reset_if_needed(game_name, party)
@@ -80,7 +80,7 @@ def party_join(update: Update, context):
         return
 
     logger.info(f'[party_join] {game_name}')
-    join_party(game_name, update.message.from_user.id, update, True)
+    join_party(game_name, update.message.from_user.id, update, False)
 
 
 def party_delete(update: Update, context):
@@ -236,7 +236,7 @@ def on_join_button_press(update: Update, ctx):
         return
     
     query.answer(f"Добавил тебя в пати {game_name}")
-    join_party(game_name, query.from_user.id, update, False)
+    join_party(game_name, query.from_user.id, update, True)
 
 
 
@@ -314,7 +314,7 @@ def add_join_button(game_name: str):
     markup = InlineKeyboardMarkup(keyboard)
     return markup
 
-def join_party(game_name: str, user_id: int, update: Update, send_reply: bool):
+def join_party(game_name: str, user_id: int, update: Update, from_query: bool):
     party = load_party(game_name)
     party = daily_party_reset_if_needed(game_name, party)
     required_people_count = party[REQUIRED_PEOPLE_COUNT]
@@ -322,8 +322,8 @@ def join_party(game_name: str, user_id: int, update: Update, send_reply: bool):
     if user_id not in party[CUR_PEOPLE_JOINED]:
         party[CUR_PEOPLE_JOINED].append(user_id)
     else:
-        if send_reply:
-            update.message.reply_text("Ты уже в пати", quote=False)
+        if not from_query:
+            update.message.reply_text(f"Ты уже в пати {game_name} ({len(party[CUR_PEOPLE_JOINED])}/{party[REQUIRED_PEOPLE_COUNT]})", quote=False, reply_markup = add_join_button(game_name))
         return
 
     if user_id not in party[NOTIFICATIONS_RECEIVERS]:
@@ -333,19 +333,25 @@ def join_party(game_name: str, user_id: int, update: Update, send_reply: bool):
     cur_people_count = len(party[CUR_PEOPLE_JOINED])
 
     if cur_people_count == required_people_count:
-        party_ready_reply_text = f"Пати для {game_name} набралась!\n"
-        party_ready_reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in party[CUR_PEOPLE_JOINED]])
-        update.message.reply_text(party_ready_reply_text, quote=False)
-        return
-    
-    if not send_reply:
-        return
-    
-    if cur_people_count > required_people_count:
-        update.message.reply_text(f"Людей уже больше чем нужно! Жесть", quote=False)
-        return
+        reply_text = f"Пати для {game_name} ({len(party[CUR_PEOPLE_JOINED])}/{party[REQUIRED_PEOPLE_COUNT]}) набралась!\n"
+        reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in party[CUR_PEOPLE_JOINED]])
+        if from_query:
+            update.callback_query.edit_message_text(reply_text, reply_markup = add_join_button(game_name))
+            update.callback_query.message.reply_text(reply_text, quote=False)
+        else:
+            update.message.reply_text(reply_text, quote=False)
 
-    if cur_people_count < required_people_count:
-        update.message.reply_text(f"Ты зашел в пати!\nЖдем еще {required_people_count - cur_people_count} челов", quote=False, reply_markup = add_join_button(game_name))
-        return
+    elif cur_people_count > required_people_count:
+        reply_text = f"Людей для {game_name} ({len(party[CUR_PEOPLE_JOINED])}/{party[REQUIRED_PEOPLE_COUNT]}) уже больше чем нужно. Жесть!\n"
+        reply_text += ', '.join([redis_db.get_username_by_id(id) for id in party[CUR_PEOPLE_JOINED]])
+        if from_query:
+            update.callback_query.edit_message_text(reply_text, reply_markup = add_join_button(game_name))
+        else:
+            update.message.reply_text(reply_text, quote=False)
 
+    elif cur_people_count < required_people_count:
+        reply_text = f"Ты зашел в пати {game_name} ({len(party[CUR_PEOPLE_JOINED])}/{party[REQUIRED_PEOPLE_COUNT]})!"
+        if from_query:
+            update.callback_query.edit_message_text(reply_text, reply_markup = add_join_button(game_name))
+        else:
+            update.message.reply_text(reply_text, quote=False, reply_markup = add_join_button(game_name))

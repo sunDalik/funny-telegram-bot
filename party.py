@@ -232,8 +232,7 @@ def on_join_button_press(update: Update, ctx):
     query = update.callback_query
     # Not checking for whitelist because its broken with callback query...
     
-    args = query.data.split()
-    game_name = args[1]
+    game_name = query.data[len("join_party "):]
     if not r.hexists(PARTIES, game_name):
         query.answer()
         return

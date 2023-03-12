@@ -23,7 +23,7 @@ def party_create(update: Update, context):
         return
     logger.info('[party_create]')
 
-    match = re.match(r'/[\S]+\s+([\S]+)\s+([0-9]+)', update.message.text, re.DOTALL)
+    match = re.match(r'/[\S]+\s+(.+)\s+([0-9]+)', update.message.text)
     if (match == None):
         update.message.reply_text("Дедушка тебя не понимает", quote=False)
         return
@@ -55,8 +55,11 @@ def party_list(update: Update, context):
         return
     logger.info('[party_list]')
 
-    reply_text = "Список всех пати\n"
     parties = r.hgetall(PARTIES)
+    if len(parties.keys()) == 0:
+        update.message.reply_text("Пати нет... Но ты можешь их создать командой /partycreate!", quote=False)
+        return
+    reply_text = "Список всех пати\n"
     for game_name, party_json in parties.items():
         party = json.loads(party_json)
         party = daily_party_reset_if_needed(game_name, party)
@@ -78,7 +81,7 @@ def party_join(update: Update, context):
 
     logger.info(f'[party_join] {game_name}')
     username = update.message.from_user.username
-    join_party(game_name, username, update, False)
+    join_party(game_name, username, update, True)
 
 
 def party_delete(update: Update, context):
@@ -241,7 +244,7 @@ def on_join_button_press(update: Update, ctx):
         return
     
     query.answer(f"Добавил тебя в пати {game_name}")
-    join_party(game_name, query.from_user.username, update, True)
+    join_party(game_name, query.from_user.username, update, False)
     
 
 
@@ -264,7 +267,7 @@ def subscribe(u: Updater):
 
 # ----------------- Helpers functions for readability ---------------
 def get_game_name_from_msg_if_exists_or_send_error_reply(update: Update) -> Optional[str]:
-    match = re.match(r'/[\S]+\s+([\S]+)', update.message.text, re.DOTALL)
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if (match == None):
         update.message.reply_text("Не понял", quote=False)
         return None
@@ -321,7 +324,7 @@ def add_join_button(game_name: str):
     markup = InlineKeyboardMarkup(keyboard)
     return markup
 
-def join_party(game_name: str, username: str, update: Update, doNotSendReply):
+def join_party(game_name: str, username: str, update: Update, send_reply: bool):
     party = load_party(game_name)
     party = daily_party_reset_if_needed(game_name, party)
     required_people_count = party[REQUIRED_PEOPLE_COUNT]
@@ -330,9 +333,8 @@ def join_party(game_name: str, username: str, update: Update, doNotSendReply):
     if username not in party[CUR_PEOPLE_JOINED]:
         party[CUR_PEOPLE_JOINED].append(username)
     else:
-        if doNotSendReply:
-            return
-        update.message.reply_text("Ты уже в пати", quote=False)
+        if send_reply:
+            update.message.reply_text("Ты уже в пати", quote=False)
         return
 
     if username not in party[NOTIFICATIONS_RECEIVERS]:
@@ -341,14 +343,14 @@ def join_party(game_name: str, username: str, update: Update, doNotSendReply):
     save_party(game_name, party)
     cur_people_count = len(party[CUR_PEOPLE_JOINED])
 
-    if doNotSendReply:
-        return
-
     if (required_people_count == cur_people_count):
         party_ready_reply_text = f"Пати для {game_name} набралась!\n"
         for joined_user_username in party[CUR_PEOPLE_JOINED]:
             party_ready_reply_text = party_ready_reply_text + f"@{joined_user_username} "
         update.message.reply_text(party_ready_reply_text, quote=False)
+        return
+    
+    if not send_reply:
         return
     
     if (required_people_count < cur_people_count):

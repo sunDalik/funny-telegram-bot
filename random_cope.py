@@ -60,7 +60,7 @@ def random_cope(update: Update, context):
         values = list(r.hgetall(DICTIONARY_HASH).values())
         values = [val for val in values if val.startswith(STICKER_PREFIX)]
         if len(values) == 0:
-            update.message.reply_animation("CgACAgQAAxkBAAIGZGQGFcqh_sukHnHKf3Oq5MVdFFejAAJiAwACeNz1Ureyyi_bihSnLgQ", quote=False)
+            update.message.reply_animation("CgACAgQAAx0CT_IhJQABBXMmY7qlHgn9TsIE04UL3TKhfZGCmOgAAmIDAAJ43PVSPgZ0f8U9qU4tBA", quote=False)
             return
         random.shuffle(values)
         file_id = values[0][len(STICKER_PREFIX):]
@@ -70,7 +70,7 @@ def random_cope(update: Update, context):
         values = list(r.hgetall(DICTIONARY_HASH).values())
         values = [val for val in values if val.startswith(GIF_PREFIX)]
         if len(values) == 0:
-            update.message.reply_animation("CgACAgQAAxkBAAIGZGQGFcqh_sukHnHKf3Oq5MVdFFejAAJiAwACeNz1Ureyyi_bihSnLgQ", quote=False)
+            update.message.reply_animation("CgACAgQAAx0CT_IhJQABBXMmY7qlHgn9TsIE04UL3TKhfZGCmOgAAmIDAAJ43PVSPgZ0f8U9qU4tBA", quote=False)
             return
         random.shuffle(values)
         file_id = values[0][len(GIF_PREFIX):]
@@ -84,7 +84,7 @@ def random_cope(update: Update, context):
         keys = list(r.hgetall(DICTIONARY_HASH).keys())
         keys = [key for key in keys if key.lower().startswith("коуп")]
         if len(keys) == 0:
-            update.message.reply_animation("CgACAgQAAxkBAAIGZGQGFcqh_sukHnHKf3Oq5MVdFFejAAJiAwACeNz1Ureyyi_bihSnLgQ", quote=False)
+            update.message.reply_animation("CgACAgQAAx0CT_IhJQABBXMmY7qlHgn9TsIE04UL3TKhfZGCmOgAAmIDAAJ43PVSPgZ0f8U9qU4tBA", quote=False)
             return
         random.shuffle(keys)
         key = keys[0]
@@ -102,7 +102,7 @@ def random_cope(update: Update, context):
         update.message.reply_dice(quote=False)
     elif res == 25:
         # Cope harder sir
-        update.message.reply_animation("CgACAgQAAxkBAAIGZGQGFcqh_sukHnHKf3Oq5MVdFFejAAJiAwACeNz1Ureyyi_bihSnLgQ", quote=False)
+        update.message.reply_animation("CgACAgQAAx0CT_IhJQABBXMmY7qlHgn9TsIE04UL3TKhfZGCmOgAAmIDAAJ43PVSPgZ0f8U9qU4tBA", quote=False)
     elif res == 26:
         update.message.reply_text(f"Врать не буду, коуп не впечатлил", quote=False)
     elif res == 27:

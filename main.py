@@ -142,6 +142,8 @@ def setDict(update: Update, context):
                 poll_json = {"question": poll.question, "options": [option.text for option in poll.options], "is_anonymous": poll.is_anonymous, "allows_multiple_answers": poll.allows_multiple_answers}
                 val = POLL_PREFIX + json.dumps(poll_json)
             elif update.message.reply_to_message.sticker is not None:
+                # It's important to note that file_ids are persistent BUT they can't be shared between bots. So it's impossible to fully port the database from one bot to another
+                # file_unique_ids are persistent between bots but you can't send or download them so they are useless
                 val = STICKER_PREFIX + update.message.reply_to_message.sticker.file_id
             elif update.message.reply_to_message.animation is not None:
                 val = GIF_PREFIX + update.message.reply_to_message.animation.file_id

@@ -17,6 +17,7 @@ def random_cope(update: Update, context):
     options = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33]
     weights = [100, 100, 100, 100, 60, 0.1, 100, 4, 50, 15, 3, 3, 40, 15, 20, 1, 6, 6, 6, 1.5, 1.5, 35, 20, 90, 50, 90, 100, 12, 1, 0.5, 0.5, 0.5, 0.5]
     res = random.choices(options, weights=weights)[0]
+    logger.info(f"[cope] res {res}")
     if res == 1:
         update.message.reply_text(f"Найс коупишь", quote=False)
     elif res == 2:
@@ -63,7 +64,8 @@ def random_cope(update: Update, context):
             return
         random.shuffle(values)
         file_id = values[0][len(STICKER_PREFIX):]
-        update.message.reply_animation(file_id, quote=False)
+        logger.info(f"fileid {file_id}")
+        update.message.reply_sticker(file_id, quote=False)
     elif res == 19:
         values = list(r.hgetall(DICTIONARY_HASH).values())
         values = [val for val in values if val.startswith(GIF_PREFIX)]
@@ -72,6 +74,7 @@ def random_cope(update: Update, context):
             return
         random.shuffle(values)
         file_id = values[0][len(GIF_PREFIX):]
+        logger.info(f"fileid {file_id}")
         update.message.reply_animation(file_id, quote=False)
     elif res == 20:
         update.message.reply_text(f"Кто-то сомневается в твоем коупе? Вызови его на дуэль в /rockpaperscissors и посмотри чей коуп победит!", quote=False)
@@ -87,6 +90,7 @@ def random_cope(update: Update, context):
         key = keys[0]
         update.message.reply_text(f"/get {key}", quote=False)
         sleep(0.5)
+        logger.info(f"cope get {key}")
         update.message.text = f"/get {key}"
         getDict(update, context)
     elif res == 23:

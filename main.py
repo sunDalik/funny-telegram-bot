@@ -45,6 +45,8 @@ def test(update: Update, context):
     if (not in_whitelist(update)):
         return
     update.message.reply_text("Looking cool joker!", quote=False)
+    #print(update.message.reply_to_message.document)
+    #print(update.message.reply_to_message.animation)
 
 
 def shitpost(update: Update, context):
@@ -118,6 +120,7 @@ def getDict(update: Update, context):
         update.message.reply_sticker(file_id, quote=False)
     elif val.startswith(GIF_PREFIX):
         file_id = val[len(GIF_PREFIX):]
+        # reply_document should also work
         update.message.reply_animation(file_id, quote=False)
     elif val.startswith(PHOTO_PREFIX):
         values = val[len(PHOTO_PREFIX):].split(CAPTION_DELIMITER, maxsplit=1)
@@ -147,6 +150,9 @@ def setDict(update: Update, context):
                 val = STICKER_PREFIX + update.message.reply_to_message.sticker.file_id
             elif update.message.reply_to_message.animation is not None:
                 val = GIF_PREFIX + update.message.reply_to_message.animation.file_id
+            # I don't know why but some GIF animations are only stored in .document but not in .animation even though they behave the same
+            elif update.message.reply_to_message.document is not None and update.message.reply_to_message.document.mime_type == 'image/gif':
+                val = GIF_PREFIX + update.message.reply_to_message.document.file_id
             elif update.message.reply_to_message.photo is not None and len(update.message.reply_to_message.photo) > 0:
                 # Messages store photos in an array where the last object of an array is the highest resolution version of a photo
                 file_id = update.message.reply_to_message.photo[-1].file_id

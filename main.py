@@ -45,6 +45,7 @@ def test(update: Update, context):
     if (not in_whitelist(update)):
         return
     update.message.reply_text("Looking cool joker!", quote=False)
+    #print(update.message.link)
     #print(update.message.reply_to_message.document)
     #print(update.message.reply_to_message.animation)
 
@@ -136,7 +137,8 @@ def setDict(update: Update, context):
         return
     logger.info(f"[setDict] {update.message.text}")
     match = re.match(r'/[\S]+\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
-    if (match == None):
+    set_as_link = False
+    if match is None:
         match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
         if match and update.message.reply_to_message is not None:
             key = match.group(1)
@@ -160,8 +162,14 @@ def setDict(update: Update, context):
                 if caption is None:
                     caption = ""
                 val = PHOTO_PREFIX + file_id + CAPTION_DELIMITER + caption 
-            else:   
+            elif update.message.reply_to_message.text is not None:   
                 val = update.message.reply_to_message.text
+            elif update.message.reply_to_message.link is not None:
+                set_as_link = True
+                val = update.message.reply_to_message.link
+            else:
+                update.message.reply_text("Что-то я ничего не понял...", quote=True)
+                return
         else:
             update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", quote=True)
             return
@@ -170,19 +178,20 @@ def setDict(update: Update, context):
         val = match.group(2)
     old_value = r.hget(DICTIONARY_HASH, key)
     r.hset(DICTIONARY_HASH, key, val)
+    extra_text = " (ссылкой на сообщение)" if set_as_link else ""
     if old_value is not None:
         if old_value.startswith(POLL_PREFIX):
-            update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то опрос", quote=False)
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там был какой-то опрос", quote=False)
         elif old_value.startswith(STICKER_PREFIX):
-            update.message.reply_text(f"Запомнил {key}! Раньше там был какой-то стикер", quote=False)
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там был какой-то стикер", quote=False)
         elif old_value.startswith(GIF_PREFIX):
-            update.message.reply_text(f"Запомнил {key}! Раньше там была какая-то гифка", quote=False)
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то гифка", quote=False)
         elif old_value.startswith(PHOTO_PREFIX):
-            update.message.reply_text(f"Запомнил {key}! Раньше там была какая-то картинка", quote=False)
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то картинка", quote=False)
         else:
-            update.message.reply_text(f"Запомнил {key}! Раньше там было \"{old_value}\"", quote=False)
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было \"{old_value}\"", quote=False)
     else:
-        update.message.reply_text(f"Запомнил {key}!", quote=False)
+        update.message.reply_text(f"Запомнил {key}{extra_text}!", quote=False)
 
 def delDict(update: Update, context):
     if (not in_whitelist(update)):

@@ -50,7 +50,7 @@ def test(update: Update, context):
     #print(update.message.reply_to_message.animation)
 
 
-def shitpost(update: Update, context):
+def shitpost(update: Update, context, previous_results = []):
     if (not in_whitelist(update)):
         return
     logger.info(f"[shitpost] {update.message.text}")
@@ -58,16 +58,24 @@ def shitpost(update: Update, context):
         update.message.reply_text("Прости, мне сегодня не до щитпостов...", quote=True)
         return
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
-    if (match == None):
+    if match is None:
         text = markovify_model.make_sentence(max_words=20, tries=15)
         #text = markovify_model.make_short_sentence(140)
         update.message.reply_text(text, quote=False)
     else:
         try:
             start = match.group(1)
-            text = markovify_model.make_sentence_with_start(start, strict=False, max_words=20, tries=15)
+            text = None
+            for _ in range(500):
+                text = markovify_model.make_sentence_with_start(start, strict=False, max_words=20, tries=15)
+                if text not in previous_results:
+                    break
+            else:
+                update.message.reply_text(f"Что-то я устал щитпостить про {start}...", quote=False)
+                return
+
             global again_function
-            again_function = lambda: shitpost(update, context)
+            again_function = lambda: shitpost(update, context, previous_results + [text])
             update.message.reply_text(text, quote=False)
         except:
             #update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)
@@ -226,7 +234,7 @@ def deep_sentence_matches_definition(definition: str, sentence: list) -> int:
     return -1
 
 
-def explain(update: Update, context):
+def explain(update: Update, context, previous_results = []):
     if (not in_whitelist(update)):
         return
     logger.info(f"[explain] {update.message.text}")
@@ -234,8 +242,6 @@ def explain(update: Update, context):
     if (match == None):
         update.message.reply_text("Что тебе объяснить?", quote=True)
         return
-    global again_function
-    again_function = lambda: explain(update, context)
     definition = match.group(1)
     result = None
     shuffled_messages = redis_db.messages.copy()
@@ -244,7 +250,10 @@ def explain(update: Update, context):
         words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
         if sentence_matches_definition(definition, words):
             result = rnd_message
-            break
+            if result in previous_results:
+                result = None
+            else:
+                break
     
     if result is None:
         logger.info(f"  Retrying with deep search...")
@@ -253,11 +262,20 @@ def explain(update: Update, context):
             starting_index = deep_sentence_matches_definition(definition, words)
             if (starting_index >= 0):
                 result = " ".join(words[starting_index: starting_index + len(definition)])
-                break
+                if result in previous_results:
+                    result = None
+                else:
+                    break
 
     if result is None:
-        update.message.reply_text(f"Я не знаю что такое \"{definition}\" ._.", quote=False)
+        if len(previous_results) > 0:
+            update.message.reply_text(f"Кажется я все уже объяснил про \"{definition}\"", quote=False)
+        else:
+            update.message.reply_text(f"Я не знаю, что такое \"{definition}\" ._.", quote=False)
         return
+    
+    global again_function
+    again_function = lambda: explain(update, context, previous_results + [result])
     logger.info(f"  Result: {result}")
     update.message.reply_text(f"<b>{definition}</b>\n{result}", parse_mode=ParseMode.HTML, quote=False)
 
@@ -271,7 +289,7 @@ def talk(update: Update, context):
     update.message.reply_text(rnd_message, quote=False)
 
 
-def opinion(update: Update, context):
+def opinion(update: Update, context, previous_results=[]):
     if (not in_whitelist(update)):
         return
     logger.info(f"[opinion] {update.message.text}")
@@ -279,22 +297,31 @@ def opinion(update: Update, context):
     if (match == None):
         update.message.reply_text("О чем ты хотел узнать мое мнение?", quote=True)
         return
-    global again_function
-    again_function = lambda: opinion(update, context)
     user_input = match.group(1)
     things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
     things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
     logger.info(f"  Parse result: {things}")
     shuffled_messages = redis_db.messages.copy()
     random.shuffle(shuffled_messages)
+    result = None
     for rnd_message in shuffled_messages:
         lower_message = rnd_message.lower()
         #if (all(thing in lower_message for thing in things)):
         # Only search for matches at the begining of words
-        if (len(rnd_message) <= 550 and all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things)):
-            update.message.reply_text(rnd_message, quote=False)
-            return
-    update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)
+        if len(rnd_message) <= 550 and all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things) and rnd_message not in previous_results:
+            result = rnd_message
+            break
+
+    if result is None:
+        if len(previous_results) > 0:
+            update.message.reply_text(f"Я уже все высказал, что я думаю о \"{user_input}\"", quote=False)
+        else:
+            update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)
+        return
+    
+    global again_function
+    again_function = lambda: opinion(update, context, previous_results + [result])
+    update.message.reply_text(result, quote=False)
 
 
 def getAll(update: Update, context):

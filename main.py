@@ -197,7 +197,11 @@ def setDict(update: Update, context):
         elif old_value.startswith(PHOTO_PREFIX):
             update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то картинка", quote=False)
         else:
-            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было \"{old_value}\"", quote=False)
+            output_limit = 100
+            if len(old_value) > output_limit:
+                update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было \"{old_value[0:output_limit]}...\" и т.д.", quote=False)
+            else:
+                update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было \"{old_value}\"", quote=False)
     else:
         update.message.reply_text(f"Запомнил {key}{extra_text}!", quote=False)
 
@@ -304,13 +308,20 @@ def opinion(update: Update, context, previous_results=[]):
     shuffled_messages = redis_db.messages.copy()
     random.shuffle(shuffled_messages)
     result = None
+    long_result = None
     for rnd_message in shuffled_messages:
         lower_message = rnd_message.lower()
         #if (all(thing in lower_message for thing in things)):
         # Only search for matches at the begining of words
-        if len(rnd_message) <= 550 and all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things) and rnd_message not in previous_results:
-            result = rnd_message
-            break
+        if all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things) and rnd_message not in previous_results:
+            if len(rnd_message) <= 550:
+                result = rnd_message
+                break
+            else:
+                long_result = rnd_message
+    
+    if result is None:
+        result = long_result
 
     if result is None:
         if len(previous_results) > 0:

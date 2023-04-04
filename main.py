@@ -397,6 +397,39 @@ def debug_file_id(update: Update, context):
         logger.info(f"{update.message.animation.file_id}")
 
 
+def handle_custom_command(update: Update, context):
+    if (not in_whitelist(update)):
+        return
+    logger.info(f"[custom] {update.message.text}")
+    match = re.match(r'(/[\S]+)', update.message.text)
+    if match is None:
+        return
+    key = match.group(1).strip()
+    val = r.hget(DICTIONARY_HASH, key)
+    
+    if val is None:
+        return
+    
+    # copypasted from getdict. TODO refactor later
+    if val.startswith(POLL_PREFIX + "{"):
+        poll_data = json.loads(val[len(POLL_PREFIX):])
+        update.message.reply_poll(poll_data.get("question", ""), poll_data.get("options", []), is_anonymous=poll_data.get("is_anonymous", False), allows_multiple_answers=poll_data.get("allows_multiple_answers", False), quote=False)
+    elif val.startswith(STICKER_PREFIX):
+        file_id = val[len(STICKER_PREFIX):]
+        update.message.reply_sticker(file_id, quote=False)
+    elif val.startswith(GIF_PREFIX):
+        file_id = val[len(GIF_PREFIX):]
+        # reply_document should also work
+        update.message.reply_animation(file_id, quote=False)
+    elif val.startswith(PHOTO_PREFIX):
+        values = val[len(PHOTO_PREFIX):].split(CAPTION_DELIMITER, maxsplit=1)
+        file_id = values[0]
+        caption = values[1] if len(values) > 1 else ""
+        update.message.reply_photo(file_id, quote=False, caption=caption)
+    else:
+        update.message.reply_text(f"{val}", quote=False)
+
+
 if __name__ == '__main__':
     logger.info("Parsing messages...")
     redis_db.load_messages()
@@ -433,6 +466,7 @@ if __name__ == '__main__':
     
     u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_normal_messages))
     #u.dispatcher.add_handler(MessageHandler(Filters.sticker | Filters.animation, debug_file_id))
+    u.dispatcher.add_handler(MessageHandler(Filters.command, handle_custom_command))
     u.dispatcher.add_error_handler(error)
 
     u.bot.set_my_commands([

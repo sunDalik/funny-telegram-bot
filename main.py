@@ -401,7 +401,7 @@ def handle_custom_command(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info(f"[custom] {update.message.text}")
-    match = re.match(r'(/[\S]+)', update.message.text)
+    match = re.match(r'(/[^\s@]+)', update.message.text)
     if match is None:
         return
     key = match.group(1).strip()

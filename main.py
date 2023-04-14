@@ -34,6 +34,7 @@ PHOTO_PREFIX =  "#!/PhotoFile"
 CAPTION_DELIMITER =  "/*#!&!#*/"
 VIDEO_PREFIX =  "#!/VideoFile"
 VOICE_PREFIX =  "#!/VoiceMessage"
+RND_GET_PREFIX =  "#!/RandomizedGet"
 
 again_function = None
 markovify_model = None
@@ -107,27 +108,53 @@ def getDict(update: Update, context):
         update.message.reply_text("Ты чего хочешь-то?", quote=True)
         return
     key = match.group(1).strip()
-    val = r.hget(DICTIONARY_HASH, key)
+    key, val = get_close_value_by_key(key)
+        
+    if val is None:
+        update.message.reply_text("Не помню такого", quote=True)
+        return
+    send_get_value(update, key, val, show_header=True)
+
+
+def rawGetDict(update: Update, context):
+    if not in_whitelist(update):
+        return
+    logger.info(f"[rawGetDict] {update.message.text}")
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
+    if match is None:
+        update.message.reply_text("Ты чего хочешь-то?", quote=True)
+        return
+    key = match.group(1).strip()
+    key, val = get_close_value_by_key(key)
+        
+    if val is None:
+        update.message.reply_text("Не помню такого", quote=True)
+        return
+
+    if val.startswith(RND_GET_PREFIX):
+        update.message.reply_text(f"/rndset {key} {val[len(RND_GET_PREFIX):]}", quote=False)
+    else:
+        update.message.reply_text(f"/set {key} {val}", quote=False)
+
     
+def get_close_value_by_key(key: str):
+    val = r.hget(DICTIONARY_HASH, key)
     if val is None:
         keys = list(r.hgetall(DICTIONARY_HASH).keys())
         close_matches = difflib.get_close_matches(key, keys, n=1)
         if len(close_matches) > 0:
             key = close_matches[0]
             val = r.hget(DICTIONARY_HASH, key)
-        
-    if val is None:
-        update.message.reply_text("Не помню такого", quote=True)
-        return
-    send_get_value(update, val, header=key)
-    
+    return key, val
 
-def send_get_value(update: Update, val: str, header):
+def send_get_value(update: Update, key: str, val, show_header, recursion_level = 0):
     '''
      A very hacky solution that I dont like! I think all dictionary entries should be json values with a type and a value
      So instead of storing plain text we would store {"type": "text", "value": "This is my text"}
     '''
-    if val.startswith(POLL_PREFIX + "{"):
+    if val is None:
+        update.message.reply_text(f"Что-то я не помню что такое {key} :<")
+    elif val.startswith(POLL_PREFIX + "{"):
         poll_data = json.loads(val[len(POLL_PREFIX):])
         update.message.reply_poll(poll_data.get("question", ""), poll_data.get("options", []), is_anonymous=poll_data.get("is_anonymous", False), allows_multiple_answers=poll_data.get("allows_multiple_answers", False), quote=False)
     elif val.startswith(STICKER_PREFIX):
@@ -151,13 +178,52 @@ def send_get_value(update: Update, val: str, header):
         file_id = val[len(VOICE_PREFIX):]
         # reply_document should also work
         update.message.reply_voice(file_id, quote=False)
+    elif val.startswith(RND_GET_PREFIX):
+        if recursion_level > 100:
+            update.message.reply_text("Мужик иди в задницу со своей рекурсией")
+            return
+        values = [thing for thing in re.split(r'\s+', val[len(RND_GET_PREFIX):]) if thing != ""]
+        random.shuffle(values)
+        sent_success = False
+        # Send first non-None value
+        for v in values:
+            chosen_key = v
+            chosen_key, chosen_value = get_close_value_by_key(chosen_key)
+            if chosen_value is not None:
+                sent_success = True
+                send_get_value(update, chosen_key, chosen_value, show_header=show_header, recursion_level=recursion_level + 1)
+                break
+        # If all values are None send the sad notification
+        if not sent_success and len(values) >= 1:
+            send_get_value(update, values[0], None, show_header=show_header, recursion_level=recursion_level + 1)
     elif val == '🎲' or val == '🎯' or val == '🏀' or val == '⚽️' or val == '🎳' or val == '🎰':
         update.message.reply_dice(emoji=val, quote=False)
     else:
-        if header is None:
-            update.message.reply_text(f"{val}", quote=False)
+        if show_header:
+            update.message.reply_text(f"{key}\n{val}", quote=False)
         else:
-            update.message.reply_text(f"{header}\n{val}", quote=False)
+            update.message.reply_text(f"{val}", quote=False)
+
+
+def rndSetDict(update: Update, context):
+    if not in_whitelist(update):
+        return
+    logger.info(f"[rndSetDict] {update.message.text}")
+    match = re.match(r'/[\S]+\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
+    if match is None:
+        match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
+        if match and update.message.reply_to_message is not None and update.message.reply_to_message.text is not None:
+            key = match.group(1)
+            values_text = update.message.reply_to_message.text
+        else:
+            update.message.reply_text("Что-то я ничего не понял. Тебе нужно написать в качестве значения разделенный пробелами список ключей, по которым будет делаться /get. Например /rndset key funnyget1 funnyget2 funnyget3", quote=True)
+            return
+    else:
+        key = match.group(1)
+        values_text = match.group(2)
+    old_value = r.hget(DICTIONARY_HASH, key)
+    r.hset(DICTIONARY_HASH, key, RND_GET_PREFIX + values_text)
+    send_confirm_set_value(update, key, old_value, False)
 
 
 def setDict(update: Update, context):
@@ -215,6 +281,10 @@ def setDict(update: Update, context):
         val = match.group(2)
     old_value = r.hget(DICTIONARY_HASH, key)
     r.hset(DICTIONARY_HASH, key, val)
+    send_confirm_set_value(update, key, old_value, set_as_link)
+
+
+def send_confirm_set_value(update: Update, key: str, old_value, set_as_link: bool):
     extra_text = " (ссылкой на сообщение)" if set_as_link else ""
     if old_value is not None:
         if old_value.startswith(POLL_PREFIX):
@@ -229,6 +299,8 @@ def setDict(update: Update, context):
             update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было какое-то видео", quote=False)
         elif old_value.startswith(VOICE_PREFIX):
             update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было какое-то голосовое", quote=False)
+        elif old_value.startswith(RND_GET_PREFIX):
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было что-то рандомное", quote=False)
         else:
             output_limit = 100
             if len(old_value) > output_limit:
@@ -237,6 +309,7 @@ def setDict(update: Update, context):
                 update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было \"{old_value}\"", quote=False)
     else:
         update.message.reply_text(f"Запомнил {key}{extra_text}!", quote=False)
+
 
 def delDict(update: Update, context):
     if (not in_whitelist(update)):
@@ -336,7 +409,7 @@ def explain(update: Update, context, previous_results = []):
         else:
             update.message.reply_text(f"Я не знаю, что такое \"{user_input}\" ._.", quote=False)
         return
-    
+
     global again_function
     again_function = lambda: explain(update, context, previous_results + [result])
     logger.info(f"  Result: {result}")
@@ -469,7 +542,7 @@ def handle_custom_command(update: Update, context):
     if val is None:
         return
     
-    send_get_value(update, val, header=None)
+    send_get_value(update, key, val, show_header=False)
 
 
 if __name__ == '__main__':
@@ -484,7 +557,9 @@ if __name__ == '__main__':
 
     u.dispatcher.add_handler(CommandHandler("ping", ping))
     u.dispatcher.add_handler(CommandHandler("get", getDict))
+    u.dispatcher.add_handler(CommandHandler("_rawget", rawGetDict))
     u.dispatcher.add_handler(CommandHandler("set", setDict))
+    u.dispatcher.add_handler(CommandHandler("rndset", rndSetDict))
     u.dispatcher.add_handler(CommandHandler(("explain", "e"), explain))
     u.dispatcher.add_handler(CommandHandler("talk", talk))
     u.dispatcher.add_handler(CommandHandler(("opinion", "o"), opinion))
@@ -519,6 +594,8 @@ if __name__ == '__main__':
         ("getall", "[search] get all keys / get all keys starting with search"),
         ("explain", "<definition> find a suitable explanation for the given definition"),
         ("opinion", "<thing> what's my opinion on thing?"),
+        ("rndset", "<key> <value keys> add randomized key which uses the provided whitespace-separated list of keys"),
+        ("_rawget", "<key> get raw internal value by key"),
         ("shitpost", "[thing] generate a shitpost message using markov chain (optionally starting with [thing])"),
         ("talk", "get random message"),
         ("again", "repeat last /explain or /opinion"),

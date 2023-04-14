@@ -275,46 +275,72 @@ def explain(update: Update, context, previous_results = []):
     if (not in_whitelist(update)):
         return
     logger.info(f"[explain] {update.message.text}")
-    match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
-    if (match == None):
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
+    if match is None:
         update.message.reply_text("Что тебе объяснить?", quote=True)
         return
-    definition = match.group(1)
-    result = None
+    user_input = match.group(1)
+    definitions = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
+    result = ""
+    found_explanation = False
     shuffled_messages = redis_db.messages.copy()
-    random.shuffle(shuffled_messages)
-    for rnd_message in shuffled_messages:
-        words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
-        if sentence_matches_definition(definition, words):
-            result = rnd_message
-            if result in previous_results:
-                result = None
+    for attempt in range(10):
+        random.shuffle(shuffled_messages)
+        for definition in definitions:
+            curr_result = None
+            for rnd_message in shuffled_messages:
+                words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
+                if sentence_matches_definition(definition, words):
+                    curr_result = rnd_message
+                    if len(definitions) <= 1 and curr_result in previous_results:
+                        curr_result = None
+                    else:
+                        break
+ 
+            if curr_result is None:
+                #logger.info(f"  Retrying with deep search...")
+                for rnd_message in shuffled_messages:
+                    words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
+                    starting_index = deep_sentence_matches_definition(definition, words)
+                    if (starting_index >= 0):
+                        curr_result = " ".join(words[starting_index: starting_index + len(definition)])
+                        if len(definitions) <= 1 and curr_result in previous_results:
+                            curr_result = None
+                        else:
+                            break
+ 
+            if curr_result is not None:
+                if result != "":
+                    result += "  "
+                result += curr_result
+                found_explanation = True
             else:
-                break
-    
-    if result is None:
-        logger.info(f"  Retrying with deep search...")
-        for rnd_message in shuffled_messages:
-            words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
-            starting_index = deep_sentence_matches_definition(definition, words)
-            if (starting_index >= 0):
-                result = " ".join(words[starting_index: starting_index + len(definition)])
-                if result in previous_results:
-                    result = None
-                else:
-                    break
-
-    if result is None:
+                if result != "":
+                    result += "  "
+                result += definition
+ 
+        # Attempting is only relevant for multi-explain. If we can't find a new explanation for a single definition then we will never be able to find it
+        if len(definitions) <= 1:
+            break
+ 
+        # Multi-explain avoids repetitions in the ENTIRE result and not for separate definitions
+        if result not in previous_results:
+            break
+ 
+        result = ""
+        found_explanation = False
+ 
+    if not found_explanation:
         if len(previous_results) > 0:
-            update.message.reply_text(f"Кажется я все уже объяснил про \"{definition}\"", quote=False)
+            update.message.reply_text(f"Кажется я все уже объяснил про \"{user_input}\"", quote=False)
         else:
-            update.message.reply_text(f"Я не знаю, что такое \"{definition}\" ._.", quote=False)
+            update.message.reply_text(f"Я не знаю, что такое \"{user_input}\" ._.", quote=False)
         return
     
     global again_function
     again_function = lambda: explain(update, context, previous_results + [result])
     logger.info(f"  Result: {result}")
-    update.message.reply_text(f"<b>{definition}</b>\n{result}", parse_mode=ParseMode.HTML, quote=False)
+    update.message.reply_text(f"<b>{user_input}</b>\n{result}", parse_mode=ParseMode.HTML, quote=False)
 
 
 def talk(update: Update, context):
@@ -335,7 +361,7 @@ def opinion(update: Update, context, previous_results=[]):
         update.message.reply_text("О чем ты хотел узнать мое мнение?", quote=True)
         return
     user_input = match.group(1)
-    things = [thing for thing in re.split(r'\s', user_input) if thing != ""]
+    things = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
     things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
     logger.info(f"  Parse result: {things}")
     shuffled_messages = redis_db.messages.copy()

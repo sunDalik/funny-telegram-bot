@@ -33,6 +33,7 @@ GIF_PREFIX =  "#!/GifAnimation"
 PHOTO_PREFIX =  "#!/PhotoFile"
 CAPTION_DELIMITER =  "/*#!&!#*/"
 VIDEO_PREFIX =  "#!/VideoFile"
+VOICE_PREFIX =  "#!/VoiceMessage"
 
 again_function = None
 markovify_model = None
@@ -146,6 +147,10 @@ def send_get_value(update: Update, val: str, header):
         file_id = values[0]
         caption = values[1] if len(values) > 1 else ""
         update.message.reply_video(file_id, quote=False, caption=caption)
+    elif val.startswith(VOICE_PREFIX):
+        file_id = val[len(VOICE_PREFIX):]
+        # reply_document should also work
+        update.message.reply_voice(file_id, quote=False)
     else:
         if header is None:
             update.message.reply_text(f"{val}", quote=False)
@@ -174,6 +179,7 @@ def setDict(update: Update, context):
             elif update.message.reply_to_message.animation is not None:
                 val = GIF_PREFIX + update.message.reply_to_message.animation.file_id
             # I don't know why but some GIF animations are only stored in .document but not in .animation even though they behave the same
+            # Maybe we can unify this behavior IF all of the animations are stored in document?
             elif update.message.reply_to_message.document is not None and update.message.reply_to_message.document.mime_type == 'image/gif':
                 val = GIF_PREFIX + update.message.reply_to_message.document.file_id
             elif update.message.reply_to_message.photo is not None and len(update.message.reply_to_message.photo) > 0:
@@ -189,6 +195,8 @@ def setDict(update: Update, context):
                 if caption is None:
                     caption = ""
                 val = VIDEO_PREFIX + file_id + CAPTION_DELIMITER + caption 
+            elif update.message.reply_to_message.voice is not None:
+                val = VOICE_PREFIX + update.message.reply_to_message.voice.file_id
             elif update.message.reply_to_message.text is not None:   
                 val = update.message.reply_to_message.text
             elif update.message.reply_to_message.link is not None:
@@ -217,6 +225,8 @@ def setDict(update: Update, context):
             update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то картинка", quote=False)
         elif old_value.startswith(VIDEO_PREFIX):
             update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было какое-то видео", quote=False)
+        elif old_value.startswith(VOICE_PREFIX):
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было какое-то голосовое", quote=False)
         else:
             output_limit = 100
             if len(old_value) > output_limit:

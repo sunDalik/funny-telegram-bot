@@ -151,6 +151,8 @@ def send_get_value(update: Update, val: str, header):
         file_id = val[len(VOICE_PREFIX):]
         # reply_document should also work
         update.message.reply_voice(file_id, quote=False)
+    elif val == '🎲' or val == '🎯' or val == '🏀' or val == '⚽️' or val == '🎳' or val == '🎰':
+        update.message.reply_dice(emoji=val, quote=False)
     else:
         if header is None:
             update.message.reply_text(f"{val}", quote=False)

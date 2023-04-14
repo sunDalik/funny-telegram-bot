@@ -32,6 +32,7 @@ STICKER_PREFIX =  "#!/Sticker"
 GIF_PREFIX =  "#!/GifAnimation"
 PHOTO_PREFIX =  "#!/PhotoFile"
 CAPTION_DELIMITER =  "/*#!&!#*/"
+VIDEO_PREFIX =  "#!/VideoFile"
 
 again_function = None
 markovify_model = None
@@ -46,6 +47,7 @@ def test(update: Update, context):
         return
     update.message.reply_text("Looking cool joker!", quote=False)
     #print(update.message.link)
+    #print(update.message.reply_to_message)
     #print(update.message.reply_to_message.document)
     #print(update.message.reply_to_message.animation)
 
@@ -116,7 +118,10 @@ def getDict(update: Update, context):
     if val is None:
         update.message.reply_text("Не помню такого", quote=True)
         return
+    send_get_value(update, val, header=key)
     
+
+def send_get_value(update: Update, val: str, header):
     '''
      A very hacky solution that I dont like! I think all dictionary entries should be json values with a type and a value
      So instead of storing plain text we would store {"type": "text", "value": "This is my text"}
@@ -136,8 +141,16 @@ def getDict(update: Update, context):
         file_id = values[0]
         caption = values[1] if len(values) > 1 else ""
         update.message.reply_photo(file_id, quote=False, caption=caption)
+    elif val.startswith(VIDEO_PREFIX):
+        values = val[len(VIDEO_PREFIX):].split(CAPTION_DELIMITER, maxsplit=1)
+        file_id = values[0]
+        caption = values[1] if len(values) > 1 else ""
+        update.message.reply_video(file_id, quote=False, caption=caption)
     else:
-        update.message.reply_text(f"{key}\n{val}", quote=False)
+        if header is None:
+            update.message.reply_text(f"{val}", quote=False)
+        else:
+            update.message.reply_text(f"{header}\n{val}", quote=False)
 
 
 def setDict(update: Update, context):
@@ -170,6 +183,12 @@ def setDict(update: Update, context):
                 if caption is None:
                     caption = ""
                 val = PHOTO_PREFIX + file_id + CAPTION_DELIMITER + caption 
+            elif update.message.reply_to_message.video is not None:
+                file_id = update.message.reply_to_message.video.file_id
+                caption = update.message.reply_to_message.caption
+                if caption is None:
+                    caption = ""
+                val = VIDEO_PREFIX + file_id + CAPTION_DELIMITER + caption 
             elif update.message.reply_to_message.text is not None:   
                 val = update.message.reply_to_message.text
             elif update.message.reply_to_message.link is not None:
@@ -196,6 +215,8 @@ def setDict(update: Update, context):
             update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то гифка", quote=False)
         elif old_value.startswith(PHOTO_PREFIX):
             update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то картинка", quote=False)
+        elif old_value.startswith(VIDEO_PREFIX):
+            update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было какое-то видео", quote=False)
         else:
             output_limit = 100
             if len(old_value) > output_limit:
@@ -410,24 +431,7 @@ def handle_custom_command(update: Update, context):
     if val is None:
         return
     
-    # copypasted from getdict. TODO refactor later
-    if val.startswith(POLL_PREFIX + "{"):
-        poll_data = json.loads(val[len(POLL_PREFIX):])
-        update.message.reply_poll(poll_data.get("question", ""), poll_data.get("options", []), is_anonymous=poll_data.get("is_anonymous", False), allows_multiple_answers=poll_data.get("allows_multiple_answers", False), quote=False)
-    elif val.startswith(STICKER_PREFIX):
-        file_id = val[len(STICKER_PREFIX):]
-        update.message.reply_sticker(file_id, quote=False)
-    elif val.startswith(GIF_PREFIX):
-        file_id = val[len(GIF_PREFIX):]
-        # reply_document should also work
-        update.message.reply_animation(file_id, quote=False)
-    elif val.startswith(PHOTO_PREFIX):
-        values = val[len(PHOTO_PREFIX):].split(CAPTION_DELIMITER, maxsplit=1)
-        file_id = values[0]
-        caption = values[1] if len(values) > 1 else ""
-        update.message.reply_photo(file_id, quote=False, caption=caption)
-    else:
-        update.message.reply_text(f"{val}", quote=False)
+    send_get_value(update, val, header=None)
 
 
 if __name__ == '__main__':

@@ -358,8 +358,8 @@ def explain(update: Update, context, previous_results = []):
     found_explanation = False
     shuffled_messages = redis_db.messages.copy()
     for attempt in range(10):
-        random.shuffle(shuffled_messages)
         for definition in definitions:
+            random.shuffle(shuffled_messages)
             curr_result = None
             for rnd_message in shuffled_messages:
                 words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]

@@ -350,9 +350,13 @@ def explain(update: Update, context, previous_results = []):
     logger.info(f"[explain] {update.message.text}")
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if match is None:
-        update.message.reply_text("Что тебе объяснить?", quote=True)
-        return
-    user_input = match.group(1)
+        if update.message.reply_to_message is not None and update.message.reply_to_message.text is not None:
+            user_input = update.message.reply_to_message.text
+        else:
+            update.message.reply_text("Что тебе объяснить?", quote=True)
+            return
+    else:
+        user_input = match.group(1)
     definitions = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
     result = ""
     found_explanation = False

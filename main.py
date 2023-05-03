@@ -472,21 +472,21 @@ def getAll(update: Update, context):
         return
     logger.info("[getAll]")
     match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
-    must_start_with = ""
+    search_string = ""
     if match:
-        must_start_with = match.group(1)
+        search_string = match.group(1)
     keys = list(r.hgetall(DICTIONARY_HASH).keys())
-    if must_start_with != "":
-        keys = [key for key in keys if key.lower().startswith(must_start_with.lower())]
+    if search_string != "":
+        keys = [key for key in keys if search_string.lower() in key.lower()]
     keys.sort()
     if (len(keys) == 0):
-        if (must_start_with != ""):
-            update.message.reply_text(f"Не нашел никаких гетов, начинающихся на \"{must_start_with}\" >.>", quote=False)
+        if (search_string != ""):
+            update.message.reply_text(f"Не нашел никаких гетов по запросу \"{search_string}\" >.>", quote=False)
             return
         else:
             update.message.reply_text(f"Я пока не знаю никаких гетов... Но ты можешь их добавить командой /set!", quote=False)
             return
-    header = 'Так вот же все ГЕТЫ:\n\n' if must_start_with == "" else f'Вот все ГЕТЫ, начинающиеся с \"{must_start_with}\":\n\n'
+    header = 'Так вот же все ГЕТЫ:\n\n' if search_string == "" else f'Вот все ГЕТЫ с \"{search_string}\":\n\n'
     response = header + ", ".join(keys)
     # Telegram has a limit of 4096 characters per message and it doesn't split them automatically
     msgs = [response[i:i + 4096] for i in range(0, len(response), 4096)]
@@ -557,7 +557,7 @@ if __name__ == '__main__':
 
     u.dispatcher.add_handler(CommandHandler("ping", ping))
     u.dispatcher.add_handler(CommandHandler("get", getDict))
-    u.dispatcher.add_handler(CommandHandler("_rawget", rawGetDict))
+    u.dispatcher.add_handler(CommandHandler("rawget", rawGetDict))
     u.dispatcher.add_handler(CommandHandler("set", setDict))
     u.dispatcher.add_handler(CommandHandler("rndset", rndSetDict))
     u.dispatcher.add_handler(CommandHandler(("explain", "e"), explain))
@@ -591,11 +591,11 @@ if __name__ == '__main__':
         ("get", "<key> get value by key"),
         ("set", "<key> <value> set value by key"),
         ("del", "<key> delete key"),
-        ("getall", "[search] get all keys / get all keys starting with search"),
+        ("getall", "[search] get all keys / get all keys that contain the search string"),
         ("explain", "<definition> find a suitable explanation for the given definition"),
         ("opinion", "<thing> what's my opinion on thing?"),
         ("rndset", "<key> <value keys> add randomized key which uses the provided whitespace-separated list of keys"),
-        ("_rawget", "<key> get raw internal value by key"),
+        ("rawget", "<key> get raw internal value by key"),
         ("shitpost", "[thing] generate a shitpost message using markov chain (optionally starting with [thing])"),
         ("talk", "get random message"),
         ("again", "repeat last /explain or /opinion"),

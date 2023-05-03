@@ -115,6 +115,35 @@ def getDict(update: Update, context):
         return
     send_get_value(update, key, val, show_header=True)
 
+def rand_get(update: Update, context, previous_results=[]):
+    if not in_whitelist(update):
+        return
+    logger.info(f"[rand_get] {update.message.text}")
+    match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
+    if match is None:
+        search_string = ""
+    else:
+        search_string = match.group(1)
+    keys = list(r.hgetall(DICTIONARY_HASH).keys())
+    keys = [key for key in keys if search_string.lower() in key.lower() and key not in previous_results]
+    if len(keys) == 0:
+        if len(previous_results) > 0:
+            if search_string == "":
+                update.message.reply_text("Я уже выдал все, что я знаю T__T", quote=False)
+            else:
+                update.message.reply_text(f"Я уже выдал все геты по запросу \"{search_string}\" T__T", quote=False)
+        else:
+            if search_string == "":
+                update.message.reply_text("Не могу найти ни одного гета...", quote=False)
+            else:
+                update.message.reply_text(f"Не могу найти ни одного гета по запросу \"{search_string}\"...", quote=False)
+        return
+    key = random.choice(keys)
+    value = r.hget(DICTIONARY_HASH, key)
+    global again_function
+    again_function = lambda: rand_get(update, context, previous_results + [key])
+    send_get_value(update, key, value, show_header=True)
+
 
 def rawGetDict(update: Update, context):
     if not in_whitelist(update):
@@ -569,6 +598,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler(("opinion", "o"), opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
+    u.dispatcher.add_handler(CommandHandler(("randget", "rg"), rand_get))
     u.dispatcher.add_handler(CommandHandler("del", delDict))
     u.dispatcher.add_handler(CommandHandler(("again", "a"), again))
     u.dispatcher.add_handler(CommandHandler("dice", dice))
@@ -596,13 +626,14 @@ if __name__ == '__main__':
         ("set", "<key> <value> set value by key"),
         ("del", "<key> delete key"),
         ("getall", "[search] get all keys / get all keys that contain the search string"),
+        ("randget", "[search] get value of a random key that contains the search string"),
         ("explain", "<definition> find a suitable explanation for the given definition"),
         ("opinion", "<thing> what's my opinion on thing?"),
         ("rndset", "<key> <value keys> add randomized key which uses the provided whitespace-separated list of keys"),
         ("rawget", "<key> get raw internal value by key"),
         ("shitpost", "[thing] generate a shitpost message using markov chain (optionally starting with [thing])"),
         ("talk", "get random message"),
-        ("again", "repeat last /explain or /opinion"),
+        ("again", "repeat last /explain, /opinion or /randget"),
         ("reg", "register for the \"jerk of the day\" game"),
         ("unreg", "unregister from the \"jerk of the day\" game"),
         ("jerk", "roll \"jerk of the day\""),

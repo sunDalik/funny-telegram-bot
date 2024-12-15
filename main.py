@@ -74,14 +74,14 @@ def shitpost(update: Update, context, previous_results = []):
             text = None
             for _ in range(500):
                 text = markovify_model.make_sentence_with_start(start, strict=False, max_words=20, tries=15)
-                if text not in previous_results:
+                if text.lower() not in previous_results:
                     break
             else:
                 update.message.reply_text(f"Что-то я устал щитпостить про {start}...", quote=False)
                 return
 
             global again_function
-            again_function = lambda: shitpost(update, context, previous_results + [text])
+            again_function = lambda: shitpost(update, context, previous_results + [text.lower()])
             update.message.reply_text(text, quote=False)
         except:
             #update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)
@@ -400,7 +400,7 @@ def explain(update: Update, context, previous_results = []):
                 words = [w for w in PUNCTUATION_REGEX.split(rnd_message) if w != ""]
                 if sentence_matches_definition(definition, words):
                     curr_result = rnd_message
-                    if len(definitions) <= 1 and curr_result in previous_results:
+                    if len(definitions) <= 1 and curr_result.lower() in previous_results:
                         curr_result = None
                     else:
                         break
@@ -412,7 +412,7 @@ def explain(update: Update, context, previous_results = []):
                     starting_index = deep_sentence_matches_definition(definition, words)
                     if (starting_index >= 0):
                         curr_result = " ".join(words[starting_index: starting_index + len(definition)])
-                        if len(definitions) <= 1 and curr_result in previous_results:
+                        if len(definitions) <= 1 and curr_result.lower() in previous_results:
                             curr_result = None
                         else:
                             break
@@ -432,7 +432,7 @@ def explain(update: Update, context, previous_results = []):
             break
  
         # Multi-explain avoids repetitions in the ENTIRE result and not for separate definitions
-        if result not in previous_results:
+        if result.lower() not in previous_results:
             break
  
         result = ""
@@ -446,7 +446,7 @@ def explain(update: Update, context, previous_results = []):
         return
 
     global again_function
-    again_function = lambda: explain(update, context, previous_results + [result])
+    again_function = lambda: explain(update, context, previous_results + [result.lower()])
     logger.info(f"  Result: {result}")
     update.message.reply_text(f"<b>{user_input}</b>\n{result}", parse_mode=ParseMode.HTML, quote=False)
 
@@ -480,7 +480,7 @@ def opinion(update: Update, context, previous_results=[]):
         lower_message = rnd_message.lower()
         #if (all(thing in lower_message for thing in things)):
         # Only search for matches at the begining of words
-        if all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things) and rnd_message not in previous_results:
+        if all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things) and rnd_message.lower() not in previous_results:
             if len(rnd_message) <= 550:
                 result = rnd_message
                 break
@@ -498,7 +498,7 @@ def opinion(update: Update, context, previous_results=[]):
         return
     
     global again_function
-    again_function = lambda: opinion(update, context, previous_results + [result])
+    again_function = lambda: opinion(update, context, previous_results + [result.lower()])
     update.message.reply_text(result, quote=False)
 
 
@@ -662,8 +662,8 @@ if __name__ == '__main__':
         ("partyping", "<name> ping all current party members"),
         ("partypinginvite", "<name> ping all former party members that are not joined now"),
         ("partyinfo", "<name> get info about game party"),
-        ("taki", "<optional level> play a game of taki"),
-        ("takistats", "<optional level> get all-time stats for taki")
+        ("taki", "[difficulty] play a game of taki"),
+        ("takistats", "[difficulty] get all-time stats for taki")
     ])
 
     logger.info("Started polling for updates")

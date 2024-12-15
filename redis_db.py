@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Self
+from typing import List
 import redis
 import json
 from _secrets import banned_user_ids
@@ -15,7 +15,7 @@ class TextMessage:
     def encode(self) -> str:
         return json.dumps({'uid': self.uid, 'ts': self.ts, 'text': self.text})
 
-    def decode(d: str) -> Self:
+    def decode(d: str):
         dd = json.loads(d)
         return TextMessage(uid=dd['uid'], ts=dd['ts'], text=dd['text'])
 

@@ -105,6 +105,10 @@ def get_taki_keyboard(guesses: List[int]) -> InlineKeyboardMarkup:
         for uid, (name, _) in taki_suspects.items()
     ]
     num_cols = 3
+    blanks_num = (num_cols - len(keys) % num_cols) % num_cols
+    for _ in range(0, blanks_num):
+        keys.append(InlineKeyboardButton(text=" ", callback_data=f"t_blank"))
+
     key_rows = [keys[i:i+num_cols] for i in range(0, len(keys), num_cols)]
     return InlineKeyboardMarkup(key_rows)
 
@@ -204,6 +208,10 @@ def takistats(update: Update, context: CallbackContext):
 
 def on_taki_action(update: Update, context: CallbackContext):
     query = update.callback_query
+    if query.data == 't_blank':
+        query.answer()
+        return
+    
     message_id = str(query.message.chat_id) + "/" + str(query.message.message_id)
     game = next((game for game in games_data if game.game_message_id == message_id), None)
     if game is None:

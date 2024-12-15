@@ -16,6 +16,7 @@ import party
 import hangman
 import random_cope
 import redis_db
+import taki
 from utils import in_whitelist, PUNCTUATION_REGEX
 import difflib
 
@@ -610,6 +611,7 @@ if __name__ == '__main__':
     hangman.subscribe(u)
     random_cope.subscribe(u)
     party.subscribe(u)
+    taki.subscribe(u)
 
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
@@ -660,6 +662,8 @@ if __name__ == '__main__':
         ("partyping", "<name> ping all current party members"),
         ("partypinginvite", "<name> ping all former party members that are not joined now"),
         ("partyinfo", "<name> get info about game party"),
+        ("taki", "<optional level> play a game of taki"),
+        ("takistats", "<optional level> get all-time stats for taki")
     ])
 
     logger.info("Started polling for updates")

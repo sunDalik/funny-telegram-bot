@@ -19,6 +19,13 @@ user_aliases = {
     12345: ["john", "johnny", "jack"]
 }
 
+# "Suspects" whose messages participate in the Taki game
+# Keys are user IDs, values are tuples of names to show in the inline keyboard and the number of raffle tickets
+# (The suspect for each game is drawn randomly from a pool of tickets, more tickets = higher probability of being chosen)
+taki_suspects = {
+    12345: ("john", 10)
+}
+
 # --- Custom replies ---
 # Aliases for the Jerk of the Day that will randomly rotate daily
 # Provide lowercase words in Nominative, Genitive, Genitive plural and Instrumental plural cases

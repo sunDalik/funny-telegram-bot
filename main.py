@@ -1,6 +1,7 @@
 from _secrets import secrets_bot_token, banned_user_ids
 import logging
 import logging.handlers
+import traceback
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
 import re
@@ -526,9 +527,9 @@ def getAll(update: Update, context):
     for text in msgs:
         update.message.reply_text(text, quote=False)
 
-
 def error(update: Update, context):
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    logger.warning('Exception in update "%s"\n%s\n%s', update, context.error, "".join(tb_list))
 
 
 def again(update: Update, context):

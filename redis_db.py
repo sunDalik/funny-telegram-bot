@@ -1,13 +1,30 @@
+from dataclasses import dataclass
+from typing import List, Self
 import redis
 import json
 from _secrets import banned_user_ids
-from telegram import User
+import telegram
+
+
+@dataclass
+class TextMessage:
+    uid: int
+    ts: int
+    text: str
+
+    def encode(self) -> str:
+        return json.dumps({'uid': self.uid, 'ts': self.ts, 'text': self.text})
+
+    def decode(d: str) -> Self:
+        dd = json.loads(d)
+        return TextMessage(uid=dd['uid'], ts=dd['ts'], text=dd['text'])
+
+
+messages: List[TextMessage] = []
 
 _connection = None
-messages = []
-
-RECEIVED_MESSAGES_LIST = 'received_messages_list'
-USER_ID_TO_NAME = 'users'
+_RECIEVED_MESSAGES = "received_tg_messages"
+_USER_ID_TO_NAME = 'users'
 
 
 def connect():
@@ -16,6 +33,7 @@ def connect():
         _connection = redis.Redis(host='localhost', port=6379, db=1, decode_responses=True)
     return _connection
 
+
 def load_messages():
     global messages
     messages = []
@@ -23,43 +41,60 @@ def load_messages():
     data = json.load(f)
     banned_user_ids_str = [str(id) for id in banned_user_ids]
     for message in data['messages']:
-        if ("text_entities" in message):
+        # Ignore reposts
+        if not "from_id" in message or not message['from_id'].startswith('user'):
+            continue
+        uid_str = message['from_id'][4:]
+        # Ingore messages from banned users
+        if uid_str in banned_user_ids_str:
+            continue
+        if "text_entities" in message:
             text = "".join([txt.get("text") for txt in message.get("text_entities")])
-            # Ignore commands and messages from banned users
-            # Skip "user" prefix from id... Telegram export does this for some reason
-            if (text != "" and "from_id" in message and message['from_id'][4:] not in banned_user_ids_str and not text.startswith("/")):
-                messages.append(text)
+            if text != "" and not text.startswith("/"):
+                ts = int(message["date_unixtime"]) if "date_unixtime" in message else 0
+                messages.append(TextMessage(uid=int(uid_str), ts=ts, text=text))
+    print(f'Loaded {len(messages)} messages from messages.json')
     f.close()
 
-    for message in connect().lrange(RECEIVED_MESSAGES_LIST, 0, -1):
-        messages.append(message)
-    
-    if (len(messages) == 0):
+    rdb_loaded = 0
+    for msg in connect().lrange(_RECIEVED_MESSAGES, 0, -1):
+        rdb_loaded += 1
+        messages.append(TextMessage.decode(msg))
+    print(f'Loaded {rdb_loaded} messages from Redis')
+
+    if len(messages) == 0:
         # The bot assumes that the messages list is never empty so if there is none we put a default message there
-        messages.append("Привет!")
+        messages.append(TextMessage(uid=0, ts=0, text="Привет!"))
+
+
+def record_message(message: telegram.Message):
+    text_message = TextMessage(uid=message.from_user.id, ts=int(message.date.timestamp()), text=message.text)
+    messages.append(text_message)
+    connect().rpush(_RECIEVED_MESSAGES, text_message.encode())
+    update_user_data(message.from_user)
 
 
 def get_username_by_id(id) -> str:
     if id is None:
         return "???"
-    username = connect().hget(USER_ID_TO_NAME, str(id))
+    username = connect().hget(_USER_ID_TO_NAME, str(id))
     username = username if username else str(id)
     return username
 
 
-def update_user_data(user: User):
+def update_user_data(user: telegram.User):
     username = user.username
     if username is None:
         username = user.first_name
         if username is None:
             return
 
-    connect().hset(USER_ID_TO_NAME, str(user.id), username)
+    connect().hset(_USER_ID_TO_NAME, str(user.id), username)
 
 
 def reverse_lookup_id(username):
     username = username[1:] if username.startswith("@") else username
-    for key, value in connect().hgetall(USER_ID_TO_NAME).items():
+    for key, value in connect().hgetall(_USER_ID_TO_NAME).items():
         if (value.lower() == username.lower()):
             return int(key)
     return None

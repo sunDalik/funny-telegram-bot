@@ -1,6 +1,7 @@
 from _secrets import secrets_bot_token, banned_user_ids
 import logging
 import logging.handlers
+import traceback
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
 import re
@@ -15,6 +16,7 @@ import party
 import hangman
 import random_cope
 import redis_db
+import taki
 from utils import in_whitelist, PUNCTUATION_REGEX
 import difflib
 
@@ -389,7 +391,7 @@ def explain(update: Update, context, previous_results = []):
     definitions = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
     result = ""
     found_explanation = False
-    shuffled_messages = redis_db.messages.copy()
+    shuffled_messages = [m.text for m in redis_db.messages]
     for attempt in range(10):
         for definition in definitions:
             random.shuffle(shuffled_messages)
@@ -455,7 +457,7 @@ def talk(update: Update, context):
     logger.info("[talk]")
     rnd_message = random.choice(redis_db.messages)
     logger.info(f"  Result: {rnd_message}")
-    update.message.reply_text(rnd_message, quote=False)
+    update.message.reply_text(rnd_message.text, quote=False)
 
 
 def opinion(update: Update, context, previous_results=[]):
@@ -470,7 +472,7 @@ def opinion(update: Update, context, previous_results=[]):
     things = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
     things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
     logger.info(f"  Parse result: {things}")
-    shuffled_messages = redis_db.messages.copy()
+    shuffled_messages = [m.text for m in redis_db.messages]
     random.shuffle(shuffled_messages)
     result = None
     long_result = None
@@ -526,9 +528,9 @@ def getAll(update: Update, context):
     for text in msgs:
         update.message.reply_text(text, quote=False)
 
-
 def error(update: Update, context):
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    logger.warning('Exception in update "%s"\n%s\n%s', update, context.error, "".join(tb_list))
 
 
 def again(update: Update, context):
@@ -548,9 +550,7 @@ def handle_normal_messages(update: Update, context):
     logger.info(f"[msg] {update.message.text}")
     if (update.message.from_user.id in banned_user_ids):
         logger.info(f"  From banned user {update.message.from_user.id}. Ignored.")
-    redis_db.update_user_data(update.message.from_user)
-    r.rpush(redis_db.RECEIVED_MESSAGES_LIST, update.message.text)
-    redis_db.messages.append(update.message.text)
+    redis_db.record_message(update.message)
 
 
 def debug_file_id(update: Update, context):
@@ -583,7 +583,7 @@ if __name__ == '__main__':
     redis_db.load_messages()
 
     logger.info("Loading shitpost model...")
-    markovify_model = markovify.Text("\n".join(redis_db.messages))
+    markovify_model = markovify.Text("\n".join([m.text for m in redis_db.messages]))
 
     logger.info("Setting up telegram bot")
     u = Updater(secrets_bot_token, use_context=True)
@@ -611,6 +611,7 @@ if __name__ == '__main__':
     hangman.subscribe(u)
     random_cope.subscribe(u)
     party.subscribe(u)
+    taki.subscribe(u)
 
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
@@ -661,6 +662,8 @@ if __name__ == '__main__':
         ("partyping", "<name> ping all current party members"),
         ("partypinginvite", "<name> ping all former party members that are not joined now"),
         ("partyinfo", "<name> get info about game party"),
+        ("taki", "<optional level> play a game of taki"),
+        ("takistats", "<optional level> get all-time stats for taki")
     ])
 
     logger.info("Started polling for updates")

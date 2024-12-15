@@ -36,6 +36,3 @@ def parse_userid(username: str, context: CallbackContext):
         return context.bot.id
 
     return redis_db.reverse_lookup_id(username)
-
-
-USER_ID_TO_NAME = 'users'

@@ -215,6 +215,10 @@ def takistats(update: Update, context: CallbackContext):
     text += "\nСамые неуловимые:\n"
     tries = r.zrevrangebyscore(f"{RKEY_TOTAL_SUSPECT_GUESSES}_{difficulty}", min=1, max=2**31-1, withscores=True)
     wins = r.zrevrangebyscore(f"{RKEY_TOTAL_IDENTIFIED}_{difficulty}", min=0, max=2**31-1, withscores=True)
+    # Fill in missing wins entries if a suspect was never identified
+    for uid_t, num_tries in tries:
+        if all(uid_w != uid_t for uid_w, num_wins in wins):
+            wins.append((uid_t, 0))
     kdratios = [(uid_t, (float(num_wins) / float(num_tries)) * 100.0)
                 for uid_t, num_tries in tries for uid_w, num_wins in wins if uid_t == uid_w]
     kdratios.sort(key=lambda t: t[1], reverse=False)

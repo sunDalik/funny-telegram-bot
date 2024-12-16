@@ -39,8 +39,13 @@ LOSE_MESSAGES = [
 RKEY_BEST_STREAK = "takistreaks"
 RKEY_CURR_STREAK = "takicurrstreak"
 RKEY_SCORE = "takiscore"
+# Stats per user (who is trying to guess a suspect)
 RKEY_TOTAL_TRIES = "takitotaltries"
 RKEY_TOTAL_WINS = "takitotalwins"
+
+# Stats per suspect (who is being guessed by users)
+RKEY_TOTAL_SUSPECT_GUESSES = "takitotalsuspectguesses"
+RKEY_TOTAL_IDENTIFIED = "takitotalidentified"
 
 
 @dataclass
@@ -183,7 +188,7 @@ def takistats(update: Update, context: CallbackContext):
             user_cache[uid] = redis_db.get_username_by_id(uid)
         text += f"{i + 1}) {user_cache[uid]} — {int(score)}\n"
     if len(scores) == 0:
-        text += "-\n"
+        text += "[ДАННЫЕ УДАЛЕНЫ]\n"
 
     text += "\nСамые удачливые:\n"
     streaks = r.zrevrangebyscore(f"{RKEY_BEST_STREAK}_{difficulty}", min=0, max=2**31-1, withscores=True)
@@ -192,7 +197,7 @@ def takistats(update: Update, context: CallbackContext):
             user_cache[uid] = redis_db.get_username_by_id(uid)
         text += f"{i + 1}) {user_cache[uid]} — {int(streak)}\n"
     if len(streaks) == 0:
-        text += "-\n"
+        text += "[ДАННЫЕ УДАЛЕНЫ]\n"
 
     text += "\nСамые меткие:\n"
     tries = r.zrevrangebyscore(f"{RKEY_TOTAL_TRIES}_{difficulty}", min=1, max=2**31-1, withscores=True)
@@ -205,7 +210,20 @@ def takistats(update: Update, context: CallbackContext):
             user_cache[uid] = redis_db.get_username_by_id(uid)
         text += f"{i + 1}) {user_cache[uid]} — {int(ratio)}%\n"
     if len(kdratios) == 0:
-        text += "-\n"
+        text += "[ДАННЫЕ УДАЛЕНЫ]\n"
+        
+    text += "\nСамые неуловимые:\n"
+    tries = r.zrevrangebyscore(f"{RKEY_TOTAL_SUSPECT_GUESSES}_{difficulty}", min=1, max=2**31-1, withscores=True)
+    wins = r.zrevrangebyscore(f"{RKEY_TOTAL_IDENTIFIED}_{difficulty}", min=0, max=2**31-1, withscores=True)
+    kdratios = [(uid_t, (float(num_wins) / float(num_tries)) * 100.0)
+                for uid_t, num_tries in tries for uid_w, num_wins in wins if uid_t == uid_w]
+    kdratios.sort(key=lambda t: t[1], reverse=False)
+    for i, (uid, ratio) in enumerate(kdratios):
+        if uid not in user_cache:
+            user_cache[uid] = redis_db.get_username_by_id(uid)
+        text += f"{i + 1}) {user_cache[uid]} — {int(ratio)}%\n"
+    if len(kdratios) == 0:
+        text += "[ДАННЫЕ УДАЛЕНЫ]\n"
 
     update.message.reply_text(text, quote=False)
 
@@ -272,8 +290,10 @@ def on_taki_action(update: Update, context: CallbackContext):
 
     if commit_game:
         r.zincrby(f"{RKEY_TOTAL_TRIES}_{game.difficulty}", 1, query.from_user.id)
+        r.zincrby(f"{RKEY_TOTAL_SUSPECT_GUESSES}_{game.difficulty}", 1, game.suspect_uid)
         if has_won:
             r.zincrby(f"{RKEY_TOTAL_WINS}_{game.difficulty}", 1, query.from_user.id)
+            r.zincrby(f"{RKEY_TOTAL_IDENTIFIED}_{game.difficulty}", 1, game.suspect_uid)
             r.zincrby(f"{RKEY_SCORE}_{game.difficulty}", score_if_won, query.from_user.id)
             for guesser_id in set(game.guesser_uids):
                 if guesser_id != query.from_user.id:

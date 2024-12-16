@@ -578,6 +578,11 @@ def handle_custom_command(update: Update, context):
     send_get_value(update, key, val, show_header=False)
 
 
+def again_setter(func):
+    global again_function
+    again_function = func
+
+
 if __name__ == '__main__':
     logger.info("Parsing messages...")
     redis_db.load_messages()
@@ -611,7 +616,7 @@ if __name__ == '__main__':
     hangman.subscribe(u)
     random_cope.subscribe(u)
     party.subscribe(u)
-    taki.subscribe(u)
+    taki.subscribe(u, again_setter)
 
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))

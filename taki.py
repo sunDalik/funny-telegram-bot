@@ -71,7 +71,7 @@ games_data: Deque[GameState] = deque([], maxlen=10)
 prev_suspect_uids: Deque[int] = deque([], maxlen=4)
 
 r = redis_db.connect()
-
+again_setter = None
 
 def format_playing_field(game: GameState) -> str:
     text = "Таки сложности " + DIFFICULTIES[game.difficulty] + ". "
@@ -82,7 +82,7 @@ def format_playing_field(game: GameState) -> str:
     if not game.is_finished():
         text += "\n"
         text += game.start_msgs[1]
-    text += "\n"
+        text += "\n"
     if game.action_log != "":
         text += "\n"
         text += game.action_log
@@ -127,6 +127,8 @@ def takistart(update: Update, context: CallbackContext):
     if diff_match is not None:
         if (req_diff := int(diff_match.group(1))) in DIFFICULTIES:
             difficulty = req_diff
+            if again_setter:
+                again_setter(lambda: takistart(update, context))
         else:
             update.message.reply_text("Это уже слишком, приятель. Выбери сложность из: " + ", ".join(map(str, DIFFICULTIES.keys())), quote=True)
             return
@@ -160,6 +162,8 @@ def takistart(update: Update, context: CallbackContext):
 
 
 def takistats(update: Update, context: CallbackContext):
+    if not in_whitelist(update):
+        return
     difficulty = DEFAULT_DIFFICULTY
     diff_match = re.match(r'/[\S]+\s+(\d+)', update.message.text)
     if diff_match is not None:
@@ -300,7 +304,9 @@ def try_edit(query: CallbackQuery, game: GameState, reply_markup) -> bool:
         return True
 
 
-def subscribe(u: Updater):
+def subscribe(u: Updater, _again_setter):
     u.dispatcher.add_handler(CommandHandler(("taki"), takistart))
     u.dispatcher.add_handler(CommandHandler(("takistats"), takistats))
     u.dispatcher.add_handler(CallbackQueryHandler(on_taki_action, pattern="^t_"))
+    global again_setter
+    again_setter = _again_setter

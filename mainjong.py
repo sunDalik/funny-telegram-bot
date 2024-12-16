@@ -13,21 +13,21 @@ bot_token = 'YOUR_BOT_TOKEN'
 
 game = MahjongGame()
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Welcome to the Mahjong game! Type /join to join the game.")
+def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    update.message.reply_text("Welcome to the Mahjong game! Type /join to join the game.")
 
-async def join(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def join(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     game.add_player(update.effective_user.id)
-    await update.message.reply_text("You've joined the game! Waiting for more players...")
+    update.message.reply_text("You've joined the game! Waiting for more players...")
 
-async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if game.ready_to_start():
         game.start()
-        await update.message.reply_text("Game started! Check your private messages for your hand.")
+        update.message.reply_text("Game started! Check your private messages for your hand.")
     else:
-        await update.message.reply_text("Waiting for more players to join...")
+        update.message.reply_text("Waiting for more players to join...")
 
-def main():
+def mainjong():
     application = ApplicationBuilder().token(bot_token).build()
     
     application.add_handler(CommandHandler("start", start))
@@ -37,4 +37,4 @@ def main():
     application.run_polling()
 
 if __name__ == '__main__':
-    main()
+    mainjong()

@@ -3,7 +3,7 @@ import logging
 import logging.handlers
 import traceback
 from telegram import ParseMode, Update
-from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
+from telegram.ext import Updater, CommandHandler, Filters, MessageHandler, CallbackContext
 import re
 import json
 import random
@@ -17,7 +17,7 @@ import hangman
 import random_cope
 import redis_db
 import taki
-from utils import in_whitelist, PUNCTUATION_REGEX
+from utils import in_whitelist, PUNCTUATION_REGEX, parse_userid
 import difflib
 
 rfh = logging.handlers.RotatingFileHandler(filename='debug.log', mode='w', maxBytes=2*1024*1024, backupCount=0,)
@@ -451,13 +451,42 @@ def explain(update: Update, context, previous_results = []):
     update.message.reply_text(f"<b>{user_input}</b>\n{result}", parse_mode=ParseMode.HTML, quote=False)
 
 
-def talk(update: Update, context):
+def talk(update: Update, context: CallbackContext, previous_results=[]):
     if (not in_whitelist(update)):
         return
-    logger.info("[talk]")
-    rnd_message = random.choice(redis_db.messages)
-    logger.info(f"  Result: {rnd_message}")
-    update.message.reply_text(rnd_message.text, quote=False)
+    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
+    user_id = None
+    if match == None:
+        if update.message.reply_to_message is not None:
+            user_id = update.message.reply_to_message.from_user.id
+    else:
+        user_id = parse_userid(match.group(1), context)
+    
+    logger.info("[talk] {match} = {user_id}")
+    if user_id is None:
+        rnd_message = random.choice(redis_db.messages)
+        logger.info(f"  Result: {rnd_message}")
+        update.message.reply_text(rnd_message.text, quote=False)
+    else:
+        result = None
+        if int(user_id) == context.bot.id:
+             options = [x for x in ["Мяу?", "Мяу", "Мяу мяу", "Мрррррр", "Мррр...", "=^_^=", "Муррр", "МЯЯЯЯЯЯУУУУ", "Мур мур", "мяв", "🐈", "🐈‍⬛"] if x.lower() not in previous_results]
+             if len(options) != 0:
+                result = random.choice(options)
+        else:
+            shuffled_messages = [m for m in redis_db.messages]
+            random.shuffle(shuffled_messages)
+            for msg in shuffled_messages:
+                if msg.uid == user_id and msg.text.lower() not in previous_results:
+                    result = msg.text
+                    break
+        if result is None:
+            update.message.reply_text("...", quote=False)
+        else:
+            logger.info(f"  Result: {result}")
+            global again_function
+            again_function = lambda: talk(update, context, previous_results + [result.lower()])
+            update.message.reply_text(result, quote=False)
 
 
 def opinion(update: Update, context, previous_results=[]):
@@ -638,7 +667,7 @@ if __name__ == '__main__':
         ("rndset", "<key> <value keys> add randomized key which uses the provided whitespace-separated list of keys"),
         ("rawget", "<key> get raw internal value by key"),
         ("shitpost", "[thing] generate a shitpost message using markov chain (optionally starting with [thing])"),
-        ("talk", "get random message"),
+        ("talk", "[person] get random message"),
         ("again", "repeat last /explain, /opinion or /randget"),
         ("reg", "register for the \"jerk of the day\" game"),
         ("unreg", "unregister from the \"jerk of the day\" game"),

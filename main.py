@@ -17,6 +17,7 @@ import hangman
 import random_cope
 import redis_db
 import taki
+import mentions
 from utils import in_whitelist, PUNCTUATION_REGEX, parse_userid
 import difflib
 
@@ -646,6 +647,7 @@ if __name__ == '__main__':
     random_cope.subscribe(u)
     party.subscribe(u)
     taki.subscribe(u, again_setter)
+    mentions.subscribe(u)
 
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
@@ -664,6 +666,7 @@ if __name__ == '__main__':
         ("randget", "[search] get value of a random key that contains the search string"),
         ("explain", "<definition> find a suitable explanation for the given definition"),
         ("opinion", "<thing> what's my opinion on thing?"),
+        ("mentions", "<thing> count how many times thing was mentioned"),
         ("rndset", "<key> <value keys> add randomized key which uses the provided whitespace-separated list of keys"),
         ("rawget", "<key> get raw internal value by key"),
         ("shitpost", "[thing] generate a shitpost message using markov chain (optionally starting with [thing])"),

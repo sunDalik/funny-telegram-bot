@@ -26,6 +26,11 @@ taki_suspects = {
     12345: ("john", 10)
 }
 
+# Used in /mentions. Whenever a lucky number is encountered in score, it also displays the given text
+lucky_numbers = {
+    1000: "🏆",
+}
+
 # --- Custom replies ---
 # Aliases for the Jerk of the Day that will randomly rotate daily
 # Provide lowercase words in Nominative, Genitive, Genitive plural and Instrumental plural cases

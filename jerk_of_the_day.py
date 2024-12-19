@@ -96,7 +96,7 @@ def jerk_roll(update: Update, context):
     sleep(1.5)
     update.message.reply_text(random.choice(["Хмм...", "Так-так-так...", "Расшифровываю результаты...", "Спрашиваем мнения экспертов...", "Дайте подумать..."]), quote=False)
     sleep(1.5)
-    update.message.reply_text(f"А вот и победитель - @{winner_username}!", quote=False)
+    update.message.reply_text(f"А вот и победитель — @{winner_username}!", quote=False)
     logger.info(f'  WINNER for {cur_datetime_str} is {winner_id}: {winner_username}')
     return
 
@@ -115,7 +115,7 @@ def get_jerk_stats(update: Update, context):
     message = f"Вот статистика {get_daily_jerk_word()[2]}:\n"
     i = 1
     for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
-        message += f"{i}. {k} - {v}\n"
+        message += f"{i}. {k} — {v}\n"
         i += 1
     update.message.reply_text(f"{message}", quote=False)
 

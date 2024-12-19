@@ -16,9 +16,14 @@ if __name__ == '__main__':
 
         # Remove messages with no text
         messages = []
+        old_messages_length = len(data['messages'])
         for message in data['messages']:
-            if ("text_entities" in message and len(message.get("text_entities")) > 0):
+            forwarded_from = message.get("forwarded_from", None)
+            if forwarded_from is not None and forwarded_from != "null":
+                continue
+            if "text_entities" in message and len(message.get("text_entities")) > 0:
                 messages.append(message)
+        new_messages_length = len(messages)
         
         print(f"messages.json contains {len(messages)} text messages")
         # Remove redudndant keys from messages
@@ -50,3 +55,4 @@ if __name__ == '__main__':
 
     new_size = os.path.getsize(JSON_PATH)
     print(f"Reduced file size from {old_size} to {new_size} bytes")
+    print(f"Removed {old_messages_length - new_messages_length} forwarded or non-text messages")

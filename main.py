@@ -652,7 +652,7 @@ if __name__ == '__main__':
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
     
-    u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_normal_messages))
+    u.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command & ~Filters.forwarded, handle_normal_messages))
     #u.dispatcher.add_handler(MessageHandler(Filters.sticker | Filters.animation, debug_file_id))
     u.dispatcher.add_handler(MessageHandler(Filters.command, handle_custom_command))
     u.dispatcher.add_error_handler(error)

@@ -48,6 +48,10 @@ def load_messages():
         # Ingore messages from banned users
         if uid_str in banned_user_ids_str:
             continue
+        # Ignore forwarded messages
+        forwarded_from = message.get("forwarded_from", None)
+        if forwarded_from is not None and forwarded_from != "null":
+            continue
         if "text_entities" in message:
             text = "".join([txt.get("text") for txt in message.get("text_entities")])
             if text != "" and not text.startswith("/"):

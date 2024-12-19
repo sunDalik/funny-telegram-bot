@@ -500,17 +500,17 @@ def opinion(update: Update, context, previous_results=[]):
         return
     user_input = match.group(1)
     things = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
-    things = [ENDINGS_REGEX.sub("", thing).lower() for thing in things]
+    things = [ENDINGS_REGEX.sub("", thing) for thing in things]
     logger.info(f"  Parse result: {things}")
     shuffled_messages = [m.text for m in redis_db.messages]
     random.shuffle(shuffled_messages)
     result = None
     long_result = None
+    regexes = [re.compile(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), flags=re.IGNORECASE) for thing in things]
     for rnd_message in shuffled_messages:
-        lower_message = rnd_message.lower()
         #if (all(thing in lower_message for thing in things)):
         # Only search for matches at the begining of words
-        if all(re.search(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), lower_message) for thing in things) and rnd_message.lower() not in previous_results:
+        if all(re.search(regex, rnd_message) for regex in regexes) and rnd_message.lower() not in previous_results:
             if len(rnd_message) <= 550:
                 result = rnd_message
                 break

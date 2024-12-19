@@ -20,11 +20,12 @@ def mentions(update: Update, context):
     user_input = match.group(1).strip()
     all_messages = [m for m in redis_db.messages]
     result = {}
+    regex = re.compile(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(user_input)), flags=re.IGNORECASE)
     for msg in all_messages:
         #if user_input_lower in msg.text.lower(): # If you want to count 1 occurence per message only
         #count = msg.text.lower().count(user_input_lower)
         # Only count occurrences at the beggining of words
-        count = len(re.findall(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(user_input)), msg.text, flags=re.IGNORECASE))
+        count = len(re.findall(regex, msg.text))
         if count != 0:
             if msg.uid not in result:
                 result[msg.uid] = count

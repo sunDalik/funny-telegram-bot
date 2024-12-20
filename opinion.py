@@ -63,7 +63,6 @@ def handleOpinionOf(update: Update, context):
 
 def opinion(update: Update, context, user_input, previous_results=[], from_user_id=None):
     things = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
-    things = [ENDINGS_REGEX.sub("", thing) for thing in things]
     logger.info(f"  Parse result: {things}")
     shuffled_messages = [m for m in redis_db.messages]
     random.shuffle(shuffled_messages)
@@ -73,7 +72,7 @@ def opinion(update: Update, context, user_input, previous_results=[], from_user_
     for rnd_message in shuffled_messages:
         #if (all(thing in lower_message for thing in things)):
         # Only search for matches at the begining of words
-        if all(re.search(regex, rnd_message.text) for regex in regexes) and rnd_message.text.lower() not in previous_results:
+        if all(re.search(regex, rnd_message.text) for regex in regexes) and rnd_message.text.lower() not in previous_results and user_input.lower() != rnd_message.text:
             if from_user_id is not None and rnd_message.uid != from_user_id:
                 continue
             if len(rnd_message.text) <= 550:
@@ -84,6 +83,25 @@ def opinion(update: Update, context, user_input, previous_results=[], from_user_
     
     if result is None:
         result = long_result
+
+
+    # If not found anything, repeat but now without endings
+    if result is None:
+        things = [ENDINGS_REGEX.sub("", thing) for thing in things]
+        regexes = [re.compile(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), flags=re.IGNORECASE) for thing in things]
+        for rnd_message in shuffled_messages:
+            if all(re.search(regex, rnd_message.text) for regex in regexes) and rnd_message.text.lower() not in previous_results and user_input.lower() != rnd_message.text:
+                if from_user_id is not None and rnd_message.uid != from_user_id:
+                    continue
+                if len(rnd_message.text) <= 550:
+                    result = rnd_message.text
+                    break
+                else:
+                    long_result = rnd_message.text
+                    
+        if result is None:
+            result = long_result
+
 
     if result is None:
         if len(previous_results) > 0 and from_user_id is None:

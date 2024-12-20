@@ -1,4 +1,3 @@
-from _secrets import user_aliases
 from telegram import ParseMode, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import RetryAfter
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
@@ -7,7 +6,6 @@ import re
 from utils import in_whitelist, parse_userid
 import random
 import json
-import traceback
 
 r = redis_db.connect()
 

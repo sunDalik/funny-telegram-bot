@@ -3,10 +3,10 @@ from telegram.ext import Updater, CommandHandler
 import random
 import redis_db
 from utils import in_whitelist
-from datetime import datetime, timedelta, time
 import logging
 from time import sleep
-from main import opinion, getDict, DICTIONARY_HASH, GIF_PREFIX, STICKER_PREFIX
+from main import getDict, DICTIONARY_HASH, GIF_PREFIX, STICKER_PREFIX
+from opinion import opinion
 
 logger = logging.getLogger(__name__)
 r = redis_db.connect()
@@ -94,8 +94,7 @@ def random_cope(update: Update, context):
         update.message.text = f"/get {key}"
         getDict(update, context)
     elif res == 23:
-        update.message.text = "/opinion коуп"
-        opinion(update, context)
+        opinion(update, context, "коуп")
     elif res == 24:
         update.message.reply_text(f"Оцениваем силу коупа от 1 до 6", quote=False)
         sleep(0.5)

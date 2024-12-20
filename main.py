@@ -18,6 +18,7 @@ import random_cope
 import redis_db
 import taki
 import mentions
+import opinion
 from utils import in_whitelist, PUNCTUATION_REGEX, parse_userid
 import difflib
 
@@ -29,7 +30,6 @@ logger = logging.getLogger(__name__)
 r = redis_db.connect()
 DICTIONARY_HASH = 'dictionary'
 MAX_ITERS = 999_999
-ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 POLL_PREFIX =  "#!/Poll"
 STICKER_PREFIX =  "#!/Sticker"
 GIF_PREFIX =  "#!/GifAnimation"
@@ -490,47 +490,6 @@ def talk(update: Update, context: CallbackContext, previous_results=[]):
             update.message.reply_text(result, quote=False)
 
 
-def opinion(update: Update, context, previous_results=[]):
-    if (not in_whitelist(update)):
-        return
-    logger.info(f"[opinion] {update.message.text}")
-    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
-    if (match == None):
-        update.message.reply_text("О чем ты хотел узнать мое мнение?", quote=True)
-        return
-    user_input = match.group(1)
-    things = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
-    things = [ENDINGS_REGEX.sub("", thing) for thing in things]
-    logger.info(f"  Parse result: {things}")
-    shuffled_messages = [m.text for m in redis_db.messages]
-    random.shuffle(shuffled_messages)
-    result = None
-    long_result = None
-    regexes = [re.compile(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), flags=re.IGNORECASE) for thing in things]
-    for rnd_message in shuffled_messages:
-        #if (all(thing in lower_message for thing in things)):
-        # Only search for matches at the begining of words
-        if all(re.search(regex, rnd_message) for regex in regexes) and rnd_message.lower() not in previous_results:
-            if len(rnd_message) <= 550:
-                result = rnd_message
-                break
-            else:
-                long_result = rnd_message
-    
-    if result is None:
-        result = long_result
-
-    if result is None:
-        if len(previous_results) > 0:
-            update.message.reply_text(f"Я уже все высказал, что я думаю о \"{user_input}\"", quote=False)
-        else:
-            update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", quote=False)
-        return
-    
-    global again_function
-    again_function = lambda: opinion(update, context, previous_results + [result.lower()])
-    update.message.reply_text(result, quote=False)
-
 
 def getAll(update: Update, context):
     if (not in_whitelist(update)):
@@ -629,8 +588,8 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler("set", setDict))
     u.dispatcher.add_handler(CommandHandler("rndset", rndSetDict))
     u.dispatcher.add_handler(CommandHandler(("explain", "e"), explain))
+    opinion.subscribe(u, again_setter)
     u.dispatcher.add_handler(CommandHandler("talk", talk))
-    u.dispatcher.add_handler(CommandHandler(("opinion", "o"), opinion))
     u.dispatcher.add_handler(CommandHandler("contribute", contribute))
     u.dispatcher.add_handler(CommandHandler("getall", getAll))
     u.dispatcher.add_handler(CommandHandler(("randget", "rg"), rand_get))
@@ -666,6 +625,7 @@ if __name__ == '__main__':
         ("randget", "[search] get value of a random key that contains the search string"),
         ("explain", "<definition> find a suitable explanation for the given definition"),
         ("opinion", "<thing> what's my opinion on thing?"),
+        ("opinionof", "<person> <thing> what's person's opinion on thing?"),
         ("mentions", "<thing> count how many times thing was mentioned"),
         ("rndset", "<key> <value keys> add randomized key which uses the provided whitespace-separated list of keys"),
         ("rawget", "<key> get raw internal value by key"),

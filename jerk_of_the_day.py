@@ -1,6 +1,6 @@
 from telegram import ParseMode, Update
 from telegram.ext import Updater, CommandHandler
-from _secrets import jerk_aliases
+from _secrets import jerk_aliases, lucky_numbers
 import random
 import redis_db
 from utils import in_whitelist
@@ -115,7 +115,7 @@ def get_jerk_stats(update: Update, context):
     message = f"Вот статистика {get_daily_jerk_word()[2]}:\n"
     i = 1
     for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
-        message += f"{i}. {k} — {v}\n"
+        message += f"{i}. {k} — {v} {lucky_numbers.get(v, '')}\n"
         i += 1
     update.message.reply_text(f"{message}", quote=False)
 

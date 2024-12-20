@@ -7,7 +7,6 @@ from utils import in_whitelist, parse_userid
 import random
 import json
 import logging
-import traceback
 
 logger = logging.getLogger(__name__)
 r = redis_db.connect()

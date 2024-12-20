@@ -2,11 +2,8 @@ from telegram import ParseMode, Update, InlineKeyboardButton, InlineKeyboardMark
 from telegram.error import RetryAfter
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
 import redis_db
-import re
-from utils import in_whitelist, parse_userid, PUNCTUATION_REGEX
-import random
+from utils import in_whitelist
 import json
-import traceback
 
 r = redis_db.connect()
 

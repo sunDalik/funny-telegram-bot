@@ -7,7 +7,7 @@ from telegram.ext import Updater, CommandHandler, Filters, MessageHandler, Callb
 import re
 import json
 import random
-import markovify
+import markov
 import slap_game
 import jerk_of_the_day
 import rps_game
@@ -40,7 +40,6 @@ VOICE_PREFIX =  "#!/VoiceMessage"
 RND_GET_PREFIX =  "#!/RandomizedGet"
 
 again_function = None
-markovify_model = None
 
 
 def ping(update: Update, context):
@@ -57,37 +56,6 @@ def test(update: Update, context):
     #print(update.message.reply_to_message.animation)
 
 
-def shitpost(update: Update, context, previous_results = []):
-    if (not in_whitelist(update)):
-        return
-    logger.info(f"[shitpost] {update.message.text}")
-    if markovify_model == None:
-        update.message.reply_text("Прости, мне сегодня не до щитпостов...", quote=True)
-        return
-    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
-    if match is None:
-        text = markovify_model.make_sentence(max_words=20, tries=15)
-        #text = markovify_model.make_short_sentence(140)
-        update.message.reply_text(text, quote=False)
-    else:
-        try:
-            start = match.group(1)
-            text = None
-            for _ in range(500):
-                text = markovify_model.make_sentence_with_start(start, strict=False, max_words=20, tries=15)
-                if text.lower() not in previous_results:
-                    break
-            else:
-                update.message.reply_text(f"Что-то я устал щитпостить про {start}...", quote=False)
-                return
-
-            global again_function
-            again_function = lambda: shitpost(update, context, previous_results + [text.lower()])
-            update.message.reply_text(text, quote=False)
-        except:
-            #update.message.reply_text("Бро, я сдаюсь, ты меня перещитпостил", quote=False)
-            text = markovify_model.make_sentence(max_words=20, tries=15)
-            update.message.reply_text(text, quote=False)
 
 
 def dice(update: Update, context):
@@ -576,9 +544,6 @@ if __name__ == '__main__':
     logger.info("Parsing messages...")
     redis_db.load_messages()
 
-    logger.info("Loading shitpost model...")
-    markovify_model = markovify.Text("\n".join([m.text for m in redis_db.messages]))
-
     logger.info("Setting up telegram bot")
     u = Updater(secrets_bot_token, use_context=True)
 
@@ -597,7 +562,7 @@ if __name__ == '__main__':
     u.dispatcher.add_handler(CommandHandler(("again", "a"), again))
     u.dispatcher.add_handler(CommandHandler("dice", dice))
     u.dispatcher.add_handler(CommandHandler(("slot", "casino"), casino))
-    u.dispatcher.add_handler(CommandHandler(("shitpost", "s"), shitpost))
+    markov.subscribe(u, again_setter)
     jerk_of_the_day.subscribe(u)
     slap_game.subscribe(u)
     rps_game.subscribe(u)

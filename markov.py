@@ -124,7 +124,7 @@ def markovpost(update: Update, context, biased_chain=None, previous_results=[]):
             return
         if biased_chain is None:
             if (biased_chain := _create_biased_chain(markov_chain, query)) is None:
-                update.message.reply_text(f'Дружище, я ряд, что тебя так забавляет "{query}", но я ничего смешного в этом не увидел...', quote=False)
+                update.message.reply_text(f'Дружище, я рад, что тебя так забавляет "{query}", но я ничего смешного в этом не увидел...', quote=False)
                 return
 
         texts = []

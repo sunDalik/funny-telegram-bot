@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime, timedelta
 import logging
 import logging.handlers
 import math
@@ -14,7 +15,8 @@ from difflib import SequenceMatcher
 r = redis_db.connect()
 logger = logging.getLogger(__name__)
 again_setter = None
-markov_chain: markovify.Text = None
+markov_chain = None
+markov_chain_timestamp = None
 
 NORMALIZE_CHAIN_INPUT = True
 MAX_QUERY_BIAS_DISTANCE = 12
@@ -100,9 +102,14 @@ def markovpost(update: Update, context, biased_chain=None, previous_results=[]):
     logger.info(f"[markov] {update.message.text}")
 
     global markov_chain
+    global markov_chain_timestamp
+    if markov_chain_timestamp is not None and datetime.now() > markov_chain_timestamp + timedelta(days=7):
+        logger.info(f"[markov] Refreshing the model created on {markov_chain_timestamp}")
+        markov_chain, markov_chain_timestamp = None, None
     if markov_chain is None:
         update.message.reply_text("Сначала я должен вспомнить всё... Подожди минутку", quote=True)
         markov_chain = _create_chain_from_messages()
+        markov_chain_timestamp = datetime.now()
         logger.info(f"[markov] Initialized model with {len(markov_chain.chain.model)} states")
 
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)

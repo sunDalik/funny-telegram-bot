@@ -19,6 +19,7 @@ import redis_db
 import taki
 import mentions
 import opinion
+import chalice
 from utils import in_whitelist, PUNCTUATION_REGEX, parse_userid
 import difflib
 
@@ -572,6 +573,7 @@ if __name__ == '__main__':
     party.subscribe(u)
     taki.subscribe(u, again_setter)
     mentions.subscribe(u)
+    chalice.subscribe(u)
 
 
     u.dispatcher.add_handler(CommandHandler("test", lambda update, context: test(update, context)))
@@ -625,7 +627,8 @@ if __name__ == '__main__':
         ("partypinginvite", "<name> ping all former party members that are not joined now"),
         ("partyinfo", "<name> get info about game party"),
         ("taki", "[difficulty] play a game of taki"),
-        ("takistats", "[difficulty] get all-time stats for taki")
+        ("takistats", "[difficulty] get all-time stats for taki"),
+        ("chalice", "<thing> how full is the chalice of thing?"),
     ])
 
     logger.info("Started polling for updates")

@@ -13,9 +13,9 @@ again_setter = None
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
 
 
-def handleOpinion(update: Update, context: CallbackContext):
+def handle_opinion(update: Update, context: CallbackContext):
     if (not in_whitelist(update)):
-            return
+        return
     logger.info(f"[opinion] {update.message.text}")
     match = re.match(r'/[\S]+\s+(.+)', update.message.text)
     if match is None:
@@ -25,7 +25,7 @@ def handleOpinion(update: Update, context: CallbackContext):
     opinion(update, context, user_input, [], None)
 
 
-def handleOpinionOf(update: Update, context):
+def handle_opinion_of(update: Update, context):
     if (not in_whitelist(update)):
         return
     logger.info(f"[opinionof] {update.message.text}")
@@ -48,7 +48,7 @@ def handleOpinionOf(update: Update, context):
         seed = user_input.strip().lower()
         my_random = random.Random()
         my_random.seed(seed)
-        intro = random.choice([f"Что я думаю о \"{user_input}\"?", f"Мое мнение о \"{user_input}\"?", f"Меня спрашивают про \"{user_input}\"?"])
+        intro = random.choice([f"Что я думаю о \"{user_input}\"?", f"Мое мнение о \"{user_input}\"?", f"Меня спрашивают о \"{user_input}\"?"])
         kansou = random.choice(["Хмм...", "Нуу...", "", "Эээ...", "🤔"])
         results = [("Да ничего я не думаю об этом ._.", 25), ("Да мне как-то все равно...", 25), ("Думаю это супер! ❤️", 80), ("It's ok I guess...", 60), ("Мне нравится!", 100), ("Крутая вещь! 🔥", 30), ("Мне не очень нравится...", 80), ("Такое себе...", 30), ("Это моя самая любимая вещь! 🔥", 10), ("Я ненавижу это! 😡", 10), ("Это худшее, что когда либо было изобретено человечеством", 1),  ("Эта самая лучшая вещь во вселенной!", 1),]
         res = my_random.choices([x for x, w in results], weights=[w for x, w in results])[0]
@@ -118,7 +118,7 @@ def opinion(update: Update, context, user_input, previous_results=[], from_user_
 
 
 def subscribe(u: Updater, _again_setter):
-    u.dispatcher.add_handler(CommandHandler(("opinion", "o"), handleOpinion))
-    u.dispatcher.add_handler(CommandHandler(("opinionof", "oo", "oof"), handleOpinionOf))
+    u.dispatcher.add_handler(CommandHandler(("opinion", "o"), handle_opinion))
+    u.dispatcher.add_handler(CommandHandler(("opinionof", "oo", "oof"), handle_opinion_of))
     global again_setter
     again_setter = _again_setter

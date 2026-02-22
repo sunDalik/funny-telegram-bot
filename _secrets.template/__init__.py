@@ -8,7 +8,7 @@ secrets_bot_token = ""
 secrets_chat_ids = []
 
 # "Banned" users
-# Messages from these users will be ignored from messages.json and new messages won't be stored in DB
+# Messages from these users will be ignored by import_messages.py and new messages won't be stored in DB
 # It makes sense to put commonly used bots here in order to not dillute the message pool
 banned_user_ids = []
 

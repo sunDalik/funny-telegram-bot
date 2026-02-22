@@ -4,10 +4,10 @@ from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
 import re
 import random
-import redis_db
+import db
+from db import Message, M
 from utils import parse_userid, get_username_by_id
 
-r = redis_db.connect()
 logger = logging.getLogger(__name__)
 again_setter = None
 ENDINGS_REGEX = re.compile(r"(?:ах|а|ев|ей|е|ов|о|иях|ия|ие|ий|й|ь|ы|ии|и|ях|я|у|ых|их|s)$", re.IGNORECASE)
@@ -57,7 +57,7 @@ async def handle_opinion_of(update: Update, context: CallbackContext):
     await opinion(update, context, user_input, [], user_id)
 
 
-def try_find_opinion(messages, things, from_user_id, previous_results, user_input):
+def try_find_opinion(messages, things, previous_results, user_input):
     terrible_result = None
     long_result = None
     regexes = [re.compile(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), flags=re.IGNORECASE) for thing in things]
@@ -65,8 +65,6 @@ def try_find_opinion(messages, things, from_user_id, previous_results, user_inpu
         #if (all(thing in lower_message for thing in things)):
         # Only search for matches at the begining of words
         if all(re.search(regex, rnd_message.text) for regex in regexes) and rnd_message.text.lower() not in previous_results:
-            if from_user_id is not None and rnd_message.uid != from_user_id:
-                continue
             if user_input.lower() == rnd_message.text.lower():
                 terrible_result = user_input
                 continue
@@ -87,15 +85,16 @@ def try_find_opinion(messages, things, from_user_id, previous_results, user_inpu
 async def opinion(update: Update, context: CallbackContext, user_input, previous_results=[], from_user_id=None):
     things = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
     logger.info(f"  Parse result: {things}")
-    shuffled_messages = [m for m in redis_db.messages]
-    random.shuffle(shuffled_messages)
-    result = None
-    result = try_find_opinion(shuffled_messages, things, from_user_id, previous_results, user_input)
+    if from_user_id is not None:
+        messages = db.get().fetch_many(Message, f"SELECT * FROM {M.TABLE} WHERE {M.USER_ID} = ? ORDER BY RANDOM()", (from_user_id,))
+    else:
+        messages = db.get().fetch_many(Message, f"SELECT * FROM {M.TABLE} ORDER BY RANDOM()")
+    result = try_find_opinion(messages, things, previous_results, user_input)
 
     # If not found anything, repeat but now without endings
     if result is None:
         things = [ENDINGS_REGEX.sub("", thing) for thing in things]
-        result = try_find_opinion(shuffled_messages, things, from_user_id, previous_results, user_input)
+        result = try_find_opinion(messages, things, previous_results, user_input)
 
     if result is None:
         if len(previous_results) > 0 and from_user_id is None:

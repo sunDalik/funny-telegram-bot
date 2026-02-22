@@ -1,13 +1,13 @@
 from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
-import redis_db
+import db
+from db import M
 from utils import get_username_by_id
 import logging
 from _secrets import lucky_numbers
 import re
 
 logger = logging.getLogger(__name__)
-r = redis_db.connect()
 
 async def mentions(update: Update, context: CallbackContext):
     logger.info(f"[mentions] {update.message.text}")
@@ -16,20 +16,19 @@ async def mentions(update: Update, context: CallbackContext):
         await update.message.reply_text("Упоминания чего будем считать?", do_quote=True)
         return
     user_input = match.group(1).strip()
-    all_messages = [m for m in redis_db.messages]
     result = {}
     regex = re.compile(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(user_input)), flags=re.IGNORECASE)
-    for msg in all_messages:
+    for msg in db.get().execute(f"SELECT {M.USER_ID}, {M.TEXT} FROM {M.TABLE}"):
         #if user_input_lower in msg.text.lower(): # If you want to count 1 occurence per message only
         #count = msg.text.lower().count(user_input_lower)
         # Only count occurrences at the beggining of words
-        count = len(re.findall(regex, msg.text))
+        count = len(re.findall(regex, msg[M.TEXT]))
         if count != 0:
-            if msg.uid not in result:
-                result[msg.uid] = count
+            if msg[M.USER_ID] not in result:
+                result[msg[M.USER_ID]] = count
             else:
-                result[msg.uid] += count
-    
+                result[msg[M.USER_ID]] += count
+
     if len(result) == 0:
         await update.message.reply_text(f"Кажется никто никогда не говорил \"{user_input}\"...\nСтань первым!", do_quote=False)
         return

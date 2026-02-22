@@ -2,8 +2,8 @@ from _secrets import secrets_bot_token, banned_user_ids, secrets_chat_ids
 import logging
 import logging.handlers
 import traceback
-from telegram import Update
-from telegram.ext import Application, ApplicationBuilder, ApplicationHandlerStop, CallbackContext, CommandHandler, filters, MessageHandler, TypeHandler
+from telegram import Update, ReactionTypeEmoji
+from telegram.ext import Application, ApplicationBuilder, ApplicationHandlerStop, CallbackContext, CommandHandler, filters, MessageHandler, TypeHandler, MessageReactionHandler
 from telegram.constants import ParseMode
 import re
 import json
@@ -17,6 +17,8 @@ import party
 import hangman
 import random_cope
 import redis_db
+import db
+from db import M
 import taki
 import mentions
 import opinion
@@ -55,6 +57,13 @@ async def whitelist_gate(update: Update, context) -> None:
         if False:
             await update.effective_message.reply_text("This chat is not whitelisted")
         raise ApplicationHandlerStop
+
+    # Cache username mapping
+    if update.effective_user is not None:
+        username = update.effective_user.username or update.effective_user.first_name
+        if username:
+            db.get().insert(db.User(user_id=update.effective_user.id, username=username))
+            db.get().commit()
 
 
 async def ping(update: Update, context: CallbackContext):
@@ -359,7 +368,7 @@ async def explain(update: Update, context: CallbackContext, previous_results = [
     definitions = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
     result = ""
     found_explanation = False
-    shuffled_messages = [m.text for m in redis_db.messages]
+    shuffled_messages = [r[M.TEXT] for r in db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE}")]
     for attempt in range(10):
         for definition in definitions:
             random.shuffle(shuffled_messages)
@@ -430,9 +439,10 @@ async def talk(update: Update, context: CallbackContext, previous_results=[]):
     
     logger.info("[talk] {match} = {user_id}")
     if user_id is None:
-        rnd_message = random.choice(redis_db.messages)
-        logger.info(f"  Result: {rnd_message}")
-        await update.message.reply_text(rnd_message.text, do_quote=False)
+        row = db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE} ORDER BY RANDOM() LIMIT 1").fetchone()
+        rnd_text = row[M.TEXT] if row else "Привет!"
+        logger.info(f"  Result: {rnd_text}")
+        await update.message.reply_text(rnd_text, do_quote=False)
     else:
         result = None
         if int(user_id) == context.bot.id:
@@ -440,11 +450,11 @@ async def talk(update: Update, context: CallbackContext, previous_results=[]):
              if len(options) != 0:
                 result = random.choice(options)
         else:
-            shuffled_messages = [m for m in redis_db.messages]
-            random.shuffle(shuffled_messages)
-            for msg in shuffled_messages:
-                if msg.uid == user_id and msg.text.lower() not in previous_results:
-                    result = msg.text
+            user_texts = [r[M.TEXT] for r in db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE} WHERE {M.USER_ID} = ?", (user_id,))]
+            random.shuffle(user_texts)
+            for text in user_texts:
+                if text.lower() not in previous_results:
+                    result = text
                     break
         if result is None:
             await update.message.reply_text("...", do_quote=False)
@@ -496,9 +506,26 @@ async def again(update: Update, context: CallbackContext):
 
 async def handle_normal_messages(update: Update, context: CallbackContext):
     logger.info(f"[msg] {update.message.text}")
-    if (update.message.from_user.id in banned_user_ids):
+    if update.message.from_user.id not in banned_user_ids:
+        db.get().record_message(update.message.message_id,
+                                update.message.from_user.id,
+                                int(update.message.date.timestamp()),
+                                update.message.text)
+    else:
         logger.info(f"  From banned user {update.message.from_user.id}. Ignored.")
-    redis_db.record_message(update.message)
+
+
+async def handle_reactions(update: Update, context: CallbackContext):
+    if update.message_reaction is None or update.message_reaction.user is None:
+        return
+    if update.message_reaction.user.id not in banned_user_ids:
+        old = {r.emoji for r in update.message_reaction.old_reaction if isinstance(r, ReactionTypeEmoji)}
+        new = {r.emoji for r in update.message_reaction.new_reaction if isinstance(r, ReactionTypeEmoji)}
+        user_id = update.message_reaction.user.id
+        ts = int(update.message_reaction.date.timestamp())
+        db.get().record_reaction(update.message_reaction.message_id, user_id, ts, new - old, old - new)
+    else:
+        logger.info(f"  Reaction from banned user {update.message_reaction.user.id}. Ignored.")
 
 
 async def debug_file_id(update: Update, context: CallbackContext):
@@ -579,13 +606,15 @@ async def post_init(a: Application) -> None:
 
 
 if __name__ == '__main__':
-    logger.info("Parsing messages...")
-    redis_db.load_messages()
+    logger.info("Connecting to database")
+    db.init('bot.db')
 
     logger.info("Setting up telegram bot")
     a = ApplicationBuilder().token(secrets_bot_token).post_init(post_init).build()
 
     a.add_handler(TypeHandler(Update, whitelist_gate), group=-1)
+
+    a.add_handler(MessageReactionHandler(handle_reactions))
 
     a.add_handler(CommandHandler("ping", ping))
     a.add_handler(CommandHandler("get", getDict))
@@ -624,4 +653,4 @@ if __name__ == '__main__':
     a.add_error_handler(error)
 
     logger.info("Started polling for updates")
-    a.run_polling()
+    a.run_polling(allowed_updates=Update.ALL_TYPES)

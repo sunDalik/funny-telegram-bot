@@ -4,13 +4,13 @@ from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
 import re
 import random
-import redis_db
+import db
+from db import Message, M
 from opinion import ENDINGS_REGEX
 from utils import get_username_by_id
-from datetime import date, datetime
+from datetime import datetime, timedelta
 from _secrets import lucky_numbers
 
-r = redis_db.connect()
 logger = logging.getLogger(__name__)
 
 async def handle_chalice(update: Update, context: CallbackContext):
@@ -30,28 +30,24 @@ async def chalice(update: Update, context: CallbackContext, user_input):
     things = [thing for thing in re.split(r'\s+', user_input) if thing != ""]
     logger.info(f"  Parse result: {things}")
     chalice_title = things[0] if len(things) > 0 else ""
-    messages = redis_db.messages
     things = [ENDINGS_REGEX.sub("", thing) for thing in things]
 
     total_messages = 0
     mention_messages = 0
 
     regexes = [re.compile(r'(?:[\s{}]+|^){}'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~'), re.escape(thing)), flags=re.IGNORECASE) for thing in things]
-    now = datetime.now()
     users = {}
 
+    limit_ts = (datetime.now() - timedelta(days=days_limit)).timestamp()
+    messages = db.get().fetch_many(Message, f"SELECT * FROM {M.TABLE} WHERE {M.TS} > ?", (limit_ts,))
     for message in messages:
-        message_date = datetime.fromtimestamp(message.ts) 
-        if (now - message_date).days >= days_limit:
-            continue
-
         total_messages += 1
         if any(re.search(regex, message.text) for regex in regexes):
             mention_messages += 1
-            if message.uid not in users:
-                users[message.uid] = 1
+            if message.user_id not in users:
+                users[message.user_id] = 1
             else:
-                users[message.uid] += 1
+                users[message.user_id] += 1
 
     ratio = mention_messages / absolute_max
     if mention_messages == 0:

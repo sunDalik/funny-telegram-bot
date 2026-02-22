@@ -32,7 +32,6 @@ async def jerk_reg(update: Update, context: CallbackContext):
     reg_user_name = update.message.from_user.username
     already_register = r.sismember(JERKS_REG_SET, reg_user_id)
     count = r.scard(JERKS_REG_SET)
-    redis_db.update_user_data(update.message.from_user)
     if already_register:
         await update.message.reply_text(f"@{reg_user_name}, ты уже участник этой клоунады", do_quote=False)
         return

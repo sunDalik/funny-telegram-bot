@@ -3,4 +3,7 @@ __pycache__/
 
 _secrets/
 dump.rdb
+bot.db
+bot.db-shm
+bot.db-wal
 *.log

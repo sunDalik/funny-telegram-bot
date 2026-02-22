@@ -9,10 +9,10 @@ import markovify
 from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
 import re
-import redis_db
+import db
+from db import M
 from difflib import SequenceMatcher
 
-r = redis_db.connect()
 logger = logging.getLogger(__name__)
 again_setter = None
 markov_chain = None
@@ -26,7 +26,7 @@ MAX_WORDS_PER_TEXT = 20
 
 
 def _create_chain_from_messages() -> markovify.Text:
-    chain_input = "\n".join(m.text for m in redis_db.messages)
+    chain_input = "\n".join(r[M.TEXT] for r in db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE} ORDER BY {M.TS}"))
     if NORMALIZE_CHAIN_INPUT:
         chain_input_orig_len = len(chain_input)
         chain_input = chain_input.lower()

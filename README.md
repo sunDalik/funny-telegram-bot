@@ -7,6 +7,12 @@ Setup redis
 https://redis.io/docs/getting-started/installation/install-redis-on-linux/  
 https://realpython.com/python-redis/  
 
+Setup message db
+`python3 utils/init_db.py`
+
+Import messages from a Telegram chat export JSON:
+`python3 utils/import_messages.py chat.json`
+
 ## Run
 Start redis  
 `sudo redis-server /etc/redis/6379.conf`  

@@ -6,6 +6,8 @@ from telegram.error import RetryAfter
 from telegram.ext import Application, CallbackContext, CommandHandler, CallbackQueryHandler
 from utils import get_username_by_id
 from _secrets import taki_suspects
+import db
+from db import M
 import redis_db
 import re
 import random
@@ -144,13 +146,18 @@ async def takistart(update: Update, context: CallbackContext):
 
     sus_uid, sus_name = random.choice(raffle)
     try:
-        all_sus_msgs = [
-            m.text
-            for m in redis_db.messages
-            # Ignore long messages, messages with just one word, and links (to avoid Telegram inserting link previews in the game message)
-            if m.uid == sus_uid and len(m.text) < 300 and m.text.count(' ') >= 2 and not "https://" in m.text
-        ]
-        sus_msgs = random.sample(all_sus_msgs, difficulty)
+        # Ignore long messages, messages with less than three words, and links (to avoid Telegram inserting link previews in the game message)
+        sus_msgs = [r[M.TEXT] for r in db.get().execute(
+            f"""SELECT {M.TEXT} FROM {M.TABLE}
+               WHERE {M.USER_ID} = ?
+                 AND LENGTH({M.TEXT}) < 300
+                 AND INSTR({M.TEXT}, 'http://') = 0
+                 AND INSTR({M.TEXT}, 'https://') = 0
+                 AND (LENGTH({M.TEXT}) - LENGTH(REPLACE({M.TEXT}, ' ', ''))) >= 2
+               ORDER BY RANDOM()
+               LIMIT ?""",
+            (sus_uid, difficulty)
+        )]
     except Exception as e:
         print(e)
         return

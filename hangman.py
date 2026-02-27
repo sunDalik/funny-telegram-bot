@@ -2,6 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import RetryAfter
 from telegram.ext import Application, CallbackContext, CommandHandler, CallbackQueryHandler
 import redis_db
+from utils import get_username_by_id
 import json
 
 r = redis_db.connect()
@@ -11,7 +12,7 @@ MAX_INCORRECT_GUESSES = 8
 
 def format_playing_field(game_state) -> str:
     if game_state['creation']:
-        return f"{redis_db.get_username_by_id(game_state['creator_id'])} загадывает слово..."
+        return f"{get_username_by_id(game_state['creator_id'])} загадывает слово..."
     text = ""
     if game_state['incorrect_guesses'] >= MAX_INCORRECT_GUESSES:
         text = f"Чел умер... Довольны?\n(Ответ: \"{game_state['answer'].upper()}\")\n\n"
@@ -223,7 +224,7 @@ async def on_hangman_action(update: Update, context: CallbackContext):
 
     prev_game_state = json.loads(json.dumps(game_state))
     game_state['guesses'].append(letter)
-    game_state['last_action'] = f"{redis_db.get_username_by_id(query.from_user.id)} выбрал букву {letter.upper()}.  "
+    game_state['last_action'] = f"{get_username_by_id(query.from_user.id)} выбрал букву {letter.upper()}.  "
 
     if letter in game_state['answer']:
         game_state['last_action'] += "✅"

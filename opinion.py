@@ -5,7 +5,7 @@ from telegram.ext import Application, CallbackContext, CommandHandler
 import re
 import random
 import redis_db
-from utils import parse_userid
+from utils import parse_userid, get_username_by_id
 
 r = redis_db.connect()
 logger = logging.getLogger(__name__)
@@ -101,9 +101,9 @@ async def opinion(update: Update, context: CallbackContext, user_input, previous
         if len(previous_results) > 0 and from_user_id is None:
             await update.message.reply_text(f"Я уже все высказал, что я думаю о \"{user_input}\"", do_quote=False)
         elif len(previous_results) > 0 and from_user_id is not None:
-            await update.message.reply_text(f"Я уже все передал, что {redis_db.get_username_by_id(from_user_id)} думает о \"{user_input}\"", do_quote=False)
+            await update.message.reply_text(f"Я уже все передал, что {get_username_by_id(from_user_id)} думает о \"{user_input}\"", do_quote=False)
         elif from_user_id is not None:
-            await update.message.reply_text(f"Кажется {redis_db.get_username_by_id(from_user_id)} ничего не думает о \"{user_input}\" x_x", do_quote=False)
+            await update.message.reply_text(f"Кажется {get_username_by_id(from_user_id)} ничего не думает о \"{user_input}\" x_x", do_quote=False)
         else:
             await update.message.reply_text(f"Я ничего не знаю о \"{user_input}\" >_<", do_quote=False)
         return

@@ -6,7 +6,7 @@ import re
 import random
 import redis_db
 from opinion import ENDINGS_REGEX
-from utils import parse_userid
+from utils import get_username_by_id
 from datetime import date, datetime
 from _secrets import lucky_numbers
 
@@ -80,7 +80,7 @@ async def chalice(update: Update, context: CallbackContext, user_input):
             if lucky_char != "":
                 lucky_char = " " + lucky_char
             user_adj = random.choice(["ярый", "щедрый", "частый"])
-            user_info = f"\n\nСамый {user_adj} наполнитель чаши — {redis_db.get_username_by_id(sorted_users[0][0])} ({sorted_users[0][1]} сообщ.{lucky_char})"
+            user_info = f"\n\nСамый {user_adj} наполнитель чаши — {get_username_by_id(sorted_users[0][0])} ({sorted_users[0][1]} сообщ.{lucky_char})"
             if ratio > 2:
                 user_info = user_info.upper()
             reply += user_info

@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CallbackContext, CommandHandler, CallbackQueryHandler
 import redis_db
+from utils import get_username_by_id
 from datetime import datetime, timedelta, time
 import logging
 import re
@@ -152,7 +153,7 @@ async def party_ping_invite(update: Update, context: CallbackContext):
         await update.message.reply_text(f"Никого не забыли, абсолютно все сейчас в пати {game_name}!", do_quote=False)
         return
     reply_text = f"Пингую всех, кто когда либо был в {game_name} пати, но сейчас не джойнут\n"
-    reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in regular_players_that_are_not_joined])
+    reply_text += ', '.join([f"@{get_username_by_id(id)}" for id in regular_players_that_are_not_joined])
     reply_text += f"\n\nЕсли ты не хочешь быть в этом списке, юзай /partypingunregister"
 
     await update.message.reply_text(reply_text, do_quote=False)
@@ -171,7 +172,7 @@ async def party_ping(update: Update, context: CallbackContext):
     party = daily_party_reset_if_needed(game_name, party)
     cur_people_joined = party[CUR_PEOPLE_JOINED]
     reply_text = f"{game_name}\n"
-    reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in cur_people_joined])
+    reply_text += ', '.join([f"@{get_username_by_id(id)}" for id in cur_people_joined])
 
     await update.message.reply_text(reply_text, do_quote=False)
 
@@ -198,13 +199,13 @@ async def party_info(update: Update, context: CallbackContext):
 
     if cur_people_joined_count != 0:
         reply_text = reply_text + f"\nА именно: "
-        reply_text += ', '.join([redis_db.get_username_by_id(id) for id in cur_people_joined])
-    
+        reply_text += ', '.join([get_username_by_id(id) for id in cur_people_joined])
+
     if len(notifications_receivers) != 0:
         regular_players_that_are_not_joined = list(set(notifications_receivers) - set(cur_people_joined))
         if len(regular_players_that_are_not_joined) > 0:
             reply_text = reply_text + f"\n\nРаньше играли, а щас отлынивают: "
-            reply_text += ', '.join([redis_db.get_username_by_id(id) for id in regular_players_that_are_not_joined])
+            reply_text += ', '.join([get_username_by_id(id) for id in regular_players_that_are_not_joined])
 
     await update.message.reply_text(reply_text, do_quote=False)
 
@@ -317,7 +318,7 @@ async def join_party(game_name: str, user_id: int, update: Update, from_query: b
 
     if cur_people_count == required_people_count:
         reply_text = f"Пати для {game_name} ({len(party[CUR_PEOPLE_JOINED])}/{party[REQUIRED_PEOPLE_COUNT]}) набралась!\n"
-        reply_text += ', '.join([f"@{redis_db.get_username_by_id(id)}" for id in party[CUR_PEOPLE_JOINED]])
+        reply_text += ', '.join([f"@{get_username_by_id(id)}" for id in party[CUR_PEOPLE_JOINED]])
         if from_query:
             await update.callback_query.edit_message_text(reply_text, reply_markup = add_join_button(game_name))
             await update.callback_query.message.reply_text(reply_text, do_quote=False)
@@ -326,7 +327,7 @@ async def join_party(game_name: str, user_id: int, update: Update, from_query: b
 
     elif cur_people_count > required_people_count:
         reply_text = f"Людей для {game_name} ({len(party[CUR_PEOPLE_JOINED])}/{party[REQUIRED_PEOPLE_COUNT]}) уже больше чем нужно. Жесть!\n"
-        reply_text += ', '.join([redis_db.get_username_by_id(id) for id in party[CUR_PEOPLE_JOINED]])
+        reply_text += ', '.join([get_username_by_id(id) for id in party[CUR_PEOPLE_JOINED]])
         if from_query:
             await update.callback_query.edit_message_text(reply_text, reply_markup = add_join_button(game_name))
         else:

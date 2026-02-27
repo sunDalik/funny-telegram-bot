@@ -3,7 +3,7 @@ from telegram.ext import Application, CallbackContext, CommandHandler
 from telegram.constants import ParseMode
 import redis_db
 import re
-from utils import parse_userid
+from utils import parse_userid, get_username_by_id
 import random
 import json
 from datetime import datetime, timedelta, time
@@ -94,7 +94,7 @@ async def slap(update: Update, context: CallbackContext):
 
         append = f"\n\nУДАЧНЫЙ ШЛЕПОК!\n<b>{update.message.from_user.username}</b> может сделать еще одно действие сегодня!" if lucky_roll else ""
         await update.message.reply_text(
-            f"<b>{update.message.from_user.username}</b> шлепнул @{redis_db.get_username_by_id(user_id)} большой рыбой по лицу!{append}", do_quote=False, parse_mode=ParseMode.HTML)
+            f"<b>{update.message.from_user.username}</b> шлепнул @{get_username_by_id(user_id)} большой рыбой по лицу!{append}", do_quote=False, parse_mode=ParseMode.HTML)
 
 
 async def heal(update: Update, context: CallbackContext):
@@ -139,9 +139,9 @@ async def heal(update: Update, context: CallbackContext):
         append = f"\n\nУДАЧНОЕ ЛЕЧЕНИЕ!\n<b>{update.message.from_user.username}</b> может сделать еще одно действие сегодня!" if lucky_roll else ""
         if is_cooldown_active(other_user_stats.get(SS_VULNERABLE_DATE)):
             other_user_stats.pop(SS_VULNERABLE_DATE, None)
-            await update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{redis_db.get_username_by_id(user_id)} по голове и снял уязвимость!{append}", do_quote=False, parse_mode=ParseMode.HTML)
+            await update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{get_username_by_id(user_id)} по голове и снял уязвимость!{append}", do_quote=False, parse_mode=ParseMode.HTML)
         else:
-            await update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{redis_db.get_username_by_id(user_id)} по голове.{append}", do_quote=False, parse_mode=ParseMode.HTML)
+            await update.message.reply_text(f"<b>{update.message.from_user.username}</b> погладил @{get_username_by_id(user_id)} по голове.{append}", do_quote=False, parse_mode=ParseMode.HTML)
 
         r.hset(SLAP_STATS_HASH, str(update.message.from_user.id), json.dumps(stats))
         r.hset(SLAP_STATS_HASH, str(user_id), json.dumps(other_user_stats))
@@ -168,7 +168,7 @@ async def parry(update: Update, context: CallbackContext):
         other_user_stats[SS_HEALTH] = other_user_stats.get(SS_HEALTH, DEFAULT_HEALTH) - 1
         other_user_stats[SS_TOTAL_SLAPS] = other_user_stats.get(SS_TOTAL_SLAPS, 0) - 1
         other_user_stats[SS_VULNERABLE_DATE] = datetime.now().strftime(DATETIME_FORMAT)
-        await update.message.reply_text(f"ИДЕАЛЬНОЕ ПАРИРОВАНИЕ! <b>{update.message.from_user.username}</b> спарировал шлепок от @{redis_db.get_username_by_id(other_user_id)} и сделал его уязвимым на день!", do_quote=False, parse_mode=ParseMode.HTML)
+        await update.message.reply_text(f"ИДЕАЛЬНОЕ ПАРИРОВАНИЕ! <b>{update.message.from_user.username}</b> спарировал шлепок от @{get_username_by_id(other_user_id)} и сделал его уязвимым на день!", do_quote=False, parse_mode=ParseMode.HTML)
         stats.pop(SS_LAST_SLAPPED_DATE, None)
         stats.pop(SS_LAST_SLAPPED_BY_USERID, None)
         r.hset(SLAP_STATS_HASH, str(update.message.from_user.id), json.dumps(stats))
@@ -179,7 +179,7 @@ async def parry(update: Update, context: CallbackContext):
         other_user_id = stats.get(SS_LAST_SLAPPED_BY_USERID, -1)
         other_user_stats = get_slap_stats(other_user_id)
         other_user_stats[SS_TOTAL_SLAPS] = other_user_stats.get(SS_TOTAL_SLAPS, 0) - 1
-        await update.message.reply_text(f"<b>{update.message.from_user.username}</b> спарировал шлепок от @{redis_db.get_username_by_id(other_user_id)}!", do_quote=False, parse_mode=ParseMode.HTML)
+        await update.message.reply_text(f"<b>{update.message.from_user.username}</b> спарировал шлепок от @{get_username_by_id(other_user_id)}!", do_quote=False, parse_mode=ParseMode.HTML)
         stats.pop(SS_LAST_SLAPPED_DATE, None)
         stats.pop(SS_LAST_SLAPPED_BY_USERID, None)
         r.hset(SLAP_STATS_HASH, str(update.message.from_user.id), json.dumps(stats))
@@ -194,7 +194,7 @@ async def parry(update: Update, context: CallbackContext):
 async def slap_stats(update: Update, context: CallbackContext):
     slappers_dict = {}
     for key in r.hgetall(SLAP_STATS_HASH):
-        username = redis_db.get_username_by_id(key)
+        username = get_username_by_id(key)
         slappers_dict[username] = get_slap_stats(key)
                 
     if len(slappers_dict.keys()) == 0:

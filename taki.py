@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from telegram import CallbackQuery, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import RetryAfter
 from telegram.ext import Application, CallbackContext, CommandHandler, CallbackQueryHandler
+from utils import get_username_by_id
 from _secrets import taki_suspects
 import redis_db
 import re
@@ -179,7 +180,7 @@ async def takistats(update: Update, context: CallbackContext):
     scores = r.zrevrangebyscore(f"{RKEY_SCORE}_{difficulty}", min=0, max=2**31-1, withscores=True)
     for i, (uid, score) in enumerate(scores):
         if uid not in user_cache:
-            user_cache[uid] = redis_db.get_username_by_id(uid)
+            user_cache[uid] = get_username_by_id(uid)
         text += f"{i + 1}) {user_cache[uid]} — {int(score)}\n"
     if len(scores) == 0:
         text += "[ДАННЫЕ УДАЛЕНЫ]\n"
@@ -188,7 +189,7 @@ async def takistats(update: Update, context: CallbackContext):
     streaks = r.zrevrangebyscore(f"{RKEY_BEST_STREAK}_{difficulty}", min=0, max=2**31-1, withscores=True)
     for i, (uid, streak) in enumerate(streaks):
         if uid not in user_cache:
-            user_cache[uid] = redis_db.get_username_by_id(uid)
+            user_cache[uid] = get_username_by_id(uid)
         text += f"{i + 1}) {user_cache[uid]} — {int(streak)}\n"
     if len(streaks) == 0:
         text += "[ДАННЫЕ УДАЛЕНЫ]\n"
@@ -201,7 +202,7 @@ async def takistats(update: Update, context: CallbackContext):
     kdratios.sort(key=lambda t: t[1], reverse=True)
     for i, (uid, ratio) in enumerate(kdratios):
         if uid not in user_cache:
-            user_cache[uid] = redis_db.get_username_by_id(uid)
+            user_cache[uid] = get_username_by_id(uid)
         text += f"{i + 1}) {user_cache[uid]} — {int(ratio)}%\n"
     if len(kdratios) == 0:
         text += "[ДАННЫЕ УДАЛЕНЫ]\n"
@@ -218,7 +219,7 @@ async def takistats(update: Update, context: CallbackContext):
     kdratios.sort(key=lambda t: t[1], reverse=False)
     for i, (uid, ratio) in enumerate(kdratios):
         if uid not in user_cache:
-            user_cache[uid] = redis_db.get_username_by_id(uid)
+            user_cache[uid] = get_username_by_id(uid)
         text += f"{i + 1}) {user_cache[uid]} — {int(ratio)}%\n"
     if len(kdratios) == 0:
         text += "[ДАННЫЕ УДАЛЕНЫ]\n"
@@ -251,7 +252,7 @@ async def on_taki_action(update: Update, context: CallbackContext):
     has_won_on_first_try = len([1 for g_id in game.guesser_uids if g_id == query.from_user.id]) == 1
     score_if_won = 1 + MAX_ATTEMPTS - len(game.guesses)
 
-    guesser_name = redis_db.get_username_by_id(query.from_user.id)
+    guesser_name = get_username_by_id(query.from_user.id)
 
     commit_game = False
     if has_won or len(game.guesses) >= MAX_ATTEMPTS:

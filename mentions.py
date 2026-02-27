@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
 import redis_db
+from utils import get_username_by_id
 import logging
 from _secrets import lucky_numbers
 import re
@@ -36,7 +37,7 @@ async def mentions(update: Update, context: CallbackContext):
     message = f"Собрал статистику упоминаний {'фразы' if ' ' in user_input else 'слова'} \"{user_input}\":\n"
     i = 1
     for k, v in dict(sorted(result.items(), key=lambda item: item[1], reverse=True)).items():
-        message += f"{i}. {redis_db.get_username_by_id(k)} — {v}  {lucky_numbers.get(v, '')}\n"
+        message += f"{i}. {get_username_by_id(k)} — {v}  {lucky_numbers.get(v, '')}\n"
         i += 1
 
     await update.message.reply_text(message, do_quote=False)

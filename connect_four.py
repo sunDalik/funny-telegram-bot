@@ -3,7 +3,7 @@ from telegram.ext import Application, CallbackContext, CommandHandler, CallbackQ
 from telegram.error import RetryAfter
 import redis_db
 import re
-from utils import parse_userid
+from utils import parse_userid, get_username_by_id
 import random
 import json
 import logging
@@ -75,7 +75,7 @@ async def start_cf(update: Update, context: CallbackContext):
         if update.message.reply_to_message is not None:
             user_id = update.message.reply_to_message.from_user.id
         else:
-            username_1 = redis_db.get_username_by_id(update.message.from_user.id)
+            username_1 = get_username_by_id(update.message.from_user.id)
             new_game_state = {"message_id": "", "player_ids": [update.message.from_user.id, None], "player_usernames": [username_1, ""], "current_turn": random.choice([0, 1]), "board": [[-1 for col in range(0, 7)] for row in range(0, 6)], "winner": None,}
             message = await update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_cf_keyboard(True), do_quote=False)
             new_game_state["message_id"] = str(message.chat_id) + "/" + str(message.message_id)
@@ -93,9 +93,9 @@ async def start_cf(update: Update, context: CallbackContext):
         await update.message.reply_text("Одиноко? Можешь поиграть со мной! Правда я не очень хорошо умею играть в это (⁄ ⁄•⁄ω⁄•⁄ ⁄)", do_quote=True)
         return
     
-    username_1 = redis_db.get_username_by_id(update.message.from_user.id)
+    username_1 = get_username_by_id(update.message.from_user.id)
     # Hack... should be included in the get username function maybe?
-    username_2 = context.bot.username if int(user_id) == context.bot.id else redis_db.get_username_by_id(user_id)
+    username_2 = context.bot.username if int(user_id) == context.bot.id else get_username_by_id(user_id)
     first_turn = 0 if int(user_id) == context.bot.id else random.choice([0, 1]) 
     new_game_state = {"message_id": "", "player_ids": [update.message.from_user.id, int(user_id)], "player_usernames": [username_1, username_2], "current_turn": first_turn, "board": [[-1 for col in range(0, 7)] for row in range(0, 6)], "winner": None,}
     message = await update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_cf_keyboard(False), do_quote=False)
@@ -160,7 +160,7 @@ async def on_cf_action(update: Update, context: CallbackContext):
     if query.data == "cf_join":
         if game_state['player_ids'][1] is None and query.from_user.id != game_state['player_ids'][0]:
             game_state['player_ids'][1] = query.from_user.id
-            game_state['player_usernames'][1] = redis_db.get_username_by_id(query.from_user.id)
+            game_state['player_usernames'][1] = get_username_by_id(query.from_user.id)
             try:
                 await query.edit_message_text(text=format_playing_field(game_state), reply_markup=get_cf_keyboard(False))
             except:

@@ -4,6 +4,7 @@ from telegram.constants import ParseMode
 from _secrets import jerk_aliases, lucky_numbers
 import random
 import redis_db
+from utils import get_username_by_id
 from datetime import datetime, timedelta, time
 import logging
 import asyncio
@@ -68,7 +69,7 @@ async def jerk_roll(update: Update, context: CallbackContext):
                       and cur_datetime.day == last_roll_dt.day
         if is_same_day:
             cur_jerk_id = r.hget(JERKS_META, 'last_jerk')
-            cur_jerk_username = redis_db.get_username_by_id(cur_jerk_id)
+            cur_jerk_username = get_username_by_id(cur_jerk_id)
             tomorrow = cur_datetime + timedelta(days=1)
             time_to_next = datetime.combine(tomorrow, time.min) - cur_datetime
             time_to_next_h, time_to_next_m = time_to_next.seconds // 3600, (time_to_next.seconds // 60) % 60
@@ -81,7 +82,7 @@ async def jerk_roll(update: Update, context: CallbackContext):
     if (len(players) == 0):
         await update.message.reply_text("А че вы роллить собрались? Никто не зарегистрировался", do_quote=True)
     winner_id = random.choice(players)
-    winner_username = redis_db.get_username_by_id(winner_id)
+    winner_username = get_username_by_id(winner_id)
     r.hset(JERKS_META, 'last_jerk', winner_id)
     r.hset(JERKS_META, 'roll_time', cur_datetime_str)
     r.hincrby(JERKS, winner_id, 1)
@@ -98,7 +99,7 @@ async def jerk_roll(update: Update, context: CallbackContext):
 async def get_jerk_stats(update: Update, context: CallbackContext):
     jerks_dict = {}
     for key in r.hgetall(JERKS):
-        winner_username = redis_db.get_username_by_id(key)
+        winner_username = get_username_by_id(key)
         win_count = r.hget(JERKS, key)
         try:
             jerks_dict[winner_username] = int(win_count) if win_count is not None else None 
@@ -120,7 +121,7 @@ async def get_jerk_regs(update: Update, context: CallbackContext):
     message = "Вот все известные мне персонажи:\n"
     i = 1
     for player in players:
-        message += f"{i}. {redis_db.get_username_by_id(player)}\n"
+        message += f"{i}. {get_username_by_id(player)}\n"
         i += 1
     await update.message.reply_text(f"{message}", do_quote=False)
 

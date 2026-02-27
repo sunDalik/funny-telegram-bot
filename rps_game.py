@@ -3,7 +3,7 @@ from telegram.error import RetryAfter
 from telegram.ext import Application, CallbackContext, CommandHandler, CallbackQueryHandler
 import redis_db
 import re
-from utils import parse_userid
+from utils import parse_userid, get_username_by_id
 import random
 import json
 
@@ -71,7 +71,7 @@ async def start_rps(update: Update, context: CallbackContext):
         if update.message.reply_to_message is not None:
             user_id = update.message.reply_to_message.from_user.id
         else:
-            username_1 = redis_db.get_username_by_id(update.message.from_user.id)
+            username_1 = get_username_by_id(update.message.from_user.id)
             new_game_state = {"message_id": "", "player_ids": [update.message.from_user.id, None], "player_usernames": [username_1, ""], "decisions": ["", ""], "current_round": 1, "scores": [0, 0], "log": "", "over": False}
             message = await update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_rps_keyboard(True), do_quote=False)
             new_game_state["message_id"] = str(message.chat_id) + "/" + str(message.message_id)
@@ -89,9 +89,9 @@ async def start_rps(update: Update, context: CallbackContext):
         await update.message.reply_text("Одиноко? Можешь поиграть со мной!", do_quote=True)
         return
     
-    username_1 = redis_db.get_username_by_id(update.message.from_user.id)
+    username_1 = get_username_by_id(update.message.from_user.id)
     # Hack... should be included in the get username function maybe?
-    username_2 = context.bot.username if int(user_id) == context.bot.id else redis_db.get_username_by_id(user_id)
+    username_2 = context.bot.username if int(user_id) == context.bot.id else get_username_by_id(user_id)
     new_game_state = {"message_id": "", "player_ids": [update.message.from_user.id, int(user_id)], "player_usernames": [username_1, username_2], "decisions": ["", ""], "current_round": 1, "scores": [0, 0], "log": "", "over": False}
     message = await update.message.reply_text(f"{format_playing_field(new_game_state)}", reply_markup=get_rps_keyboard(False), do_quote=False)
     new_game_state["message_id"] = str(message.chat_id) + "/" + str(message.message_id)
@@ -128,7 +128,7 @@ async def on_rps_action(update: Update, context: CallbackContext):
     if query.data == "rps_join":
         if game_state['player_ids'][1] is None and query.from_user.id != game_state['player_ids'][0]:
             game_state['player_ids'][1] = query.from_user.id
-            game_state['player_usernames'][1] = redis_db.get_username_by_id(query.from_user.id)
+            game_state['player_usernames'][1] = get_username_by_id(query.from_user.id)
             try:
                 await query.edit_message_text(text=format_playing_field(game_state), reply_markup=get_rps_keyboard(False))
             except:

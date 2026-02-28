@@ -7,9 +7,8 @@ import random
 import db
 from db import Message, M
 from opinion import ENDINGS_REGEX
-from utils import get_username_by_id
+from utils import get_username_by_id, fmt_number
 from datetime import datetime, timedelta
-from _secrets import lucky_numbers
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +71,8 @@ async def chalice(update: Update, context: CallbackContext, user_input):
 
         sorted_users = list(dict(sorted(users.items(), key=lambda item: item[1], reverse=True)).items())
         if ratio > 0.4 and (len(sorted_users) == 1 or (len(sorted_users) >= 2 and sorted_users[0][1] - sorted_users[1][1] >= 5)):
-            lucky_char = lucky_numbers.get(sorted_users[0][1], '')
-            if lucky_char != "":
-                lucky_char = " " + lucky_char
             user_adj = random.choice(["ярый", "щедрый", "частый"])
-            user_info = f"\n\nСамый {user_adj} наполнитель чаши — {get_username_by_id(sorted_users[0][0])} ({sorted_users[0][1]} сообщ.{lucky_char})"
+            user_info = f"\n\nСамый {user_adj} наполнитель чаши — {get_username_by_id(sorted_users[0][0])} ({fmt_number(sorted_users[0][1], ' сообщ.')})"
             if ratio > 2:
                 user_info = user_info.upper()
             reply += user_info

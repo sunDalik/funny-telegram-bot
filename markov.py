@@ -4,7 +4,7 @@ import logging
 import logging.handlers
 import math
 from typing import Dict, List
-from _secrets import lucky_numbers
+from utils import fmt_number
 import markovify
 from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
@@ -139,7 +139,7 @@ async def markovpost(update: Update, context: CallbackContext, biased_chain=None
             text, text_try = texts[0]
             if again_setter:
                 again_setter(lambda: markovpost(update, context, biased_chain, previous_results + [text]))
-            await update.message.reply_text(f"Прикол #{text_try}{lucky_numbers.get(text_try, '')}. {text.capitalize()}", do_quote=False)
+            await update.message.reply_text(f"Прикол #{fmt_number(text_try)}. {text.capitalize()}", do_quote=False)
         else:
             await update.message.reply_text(f'Что-то я ничего смешного про "{query}" не придумал...', do_quote=False)
 

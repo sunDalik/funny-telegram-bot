@@ -1,17 +1,18 @@
-from _secrets import user_aliases
+from _secrets import user_aliases, lucky_numbers
 from telegram.ext import CallbackContext
 from collections import Counter
-import logging
 import random
 import db
 from db import U
 import re
 import regex
 
-logger = logging.getLogger(__name__)
-
 # Don't include apostrophe
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
+
+
+def fmt_number(n: int, suffix: str = "") -> str:
+    return f"{n}{suffix} {lucky_numbers[n]}" if n in lucky_numbers else f"{n}{suffix}"
 
 
 def fmt_emoji_html(emoji: str) -> str:

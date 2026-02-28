@@ -1,10 +1,10 @@
 from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
 from telegram.constants import ParseMode
-from _secrets import jerk_aliases, lucky_numbers
+from _secrets import jerk_aliases
 import random
 import redis_db
-from utils import get_username_by_id
+from utils import get_username_by_id, fmt_number
 from datetime import datetime, timedelta, time
 import logging
 import asyncio
@@ -107,7 +107,7 @@ async def get_jerk_stats(update: Update, context: CallbackContext):
     message = f"Вот статистика {get_daily_jerk_word()[2]}:\n"
     i = 1
     for k, v in dict(sorted(jerks_dict.items(), key=lambda item: item[1], reverse=True)).items():
-        message += f"{i}. {k} — {v} {lucky_numbers.get(v, '')}\n"
+        message += f"{i}. {k} — {fmt_number(v)}\n"
         i += 1
     await update.message.reply_text(f"{message}", do_quote=False)
 

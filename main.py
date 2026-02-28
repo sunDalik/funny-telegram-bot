@@ -24,7 +24,8 @@ import mentions
 import opinion
 import chalice
 import uptime
-from utils import PUNCTUATION_REGEX, parse_userid
+import talk
+from utils import PUNCTUATION_REGEX
 import difflib
 
 rfh = logging.handlers.RotatingFileHandler(filename='debug.log', mode='w', maxBytes=2*1024*1024, backupCount=0,)
@@ -428,44 +429,6 @@ async def explain(update: Update, context: CallbackContext, previous_results = [
     await update.message.reply_text(f"<b>{user_input}</b>\n{result}", parse_mode=ParseMode.HTML, do_quote=False)
 
 
-async def talk(update: Update, context: CallbackContext, previous_results=[]):
-    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
-    user_id = None
-    if match == None:
-        if update.message.reply_to_message is not None:
-            user_id = update.message.reply_to_message.from_user.id
-    else:
-        user_id = parse_userid(match.group(1), context)
-    
-    logger.info("[talk] {match} = {user_id}")
-    if user_id is None:
-        row = db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE} ORDER BY RANDOM() LIMIT 1").fetchone()
-        rnd_text = row[M.TEXT] if row else "Привет!"
-        logger.info(f"  Result: {rnd_text}")
-        await update.message.reply_text(rnd_text, do_quote=False)
-    else:
-        result = None
-        if int(user_id) == context.bot.id:
-             options = [x for x in ["Мяу?", "Мяу", "Мяу мяу", "Мрррррр", "Мррр...", "=^_^=", "Муррр", "МЯЯЯЯЯЯУУУУ", "Мур мур", "мяв", "🐈", "🐈‍⬛"] if x.lower() not in previous_results]
-             if len(options) != 0:
-                result = random.choice(options)
-        else:
-            user_texts = [r[M.TEXT] for r in db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE} WHERE {M.USER_ID} = ?", (user_id,))]
-            random.shuffle(user_texts)
-            for text in user_texts:
-                if text.lower() not in previous_results:
-                    result = text
-                    break
-        if result is None:
-            await update.message.reply_text("...", do_quote=False)
-        else:
-            logger.info(f"  Result: {result}")
-            global again_function
-            again_function = lambda: talk(update, context, previous_results + [result.lower()])
-            await update.message.reply_text(result, do_quote=False)
-
-
-
 async def getAll(update: Update, context: CallbackContext):
     logger.info("[getAll]")
     match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
@@ -569,7 +532,8 @@ async def post_init(a: Application) -> None:
         ("rndset", "<key> <value keys> add randomized key which uses the provided whitespace-separated list of keys"),
         ("rawget", "<key> get raw internal value by key"),
         ("shitpost", "[thing] generate a shitpost message using markov chain (optionally starting with [thing])"),
-        ("talk", "[person] get random message"),
+        ("talk", "[emojis] get a random message, optionally with at least this many emoji reactions"),
+        ("talklike", "<person> [emojis] get a random message from this person, optionally with at least this many emoji reactions"),
         ("again", "repeat last /explain, /opinion or /randget"),
         ("reg", "register for the \"jerk of the day\" game"),
         ("unreg", "unregister from the \"jerk of the day\" game"),
@@ -623,7 +587,6 @@ if __name__ == '__main__':
     a.add_handler(CommandHandler("rndset", rndSetDict))
     a.add_handler(CommandHandler(("explain", "e"), explain))
     opinion.subscribe(a, again_setter)
-    a.add_handler(CommandHandler("talk", talk))
     a.add_handler(CommandHandler("contribute", contribute))
     a.add_handler(CommandHandler("getall", getAll))
     a.add_handler(CommandHandler(("randget", "rg"), rand_get))
@@ -643,6 +606,7 @@ if __name__ == '__main__':
     mentions.subscribe(a)
     chalice.subscribe(a)
     uptime.subscribe(a)
+    talk.subscribe(a, again_setter)
 
 
     a.add_handler(CommandHandler("test", lambda update, context: test(update, context)))

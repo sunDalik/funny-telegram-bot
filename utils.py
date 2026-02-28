@@ -1,5 +1,6 @@
 from _secrets import user_aliases
 from telegram.ext import CallbackContext
+from collections import Counter
 import logging
 import random
 import db
@@ -10,6 +11,24 @@ logger = logging.getLogger(__name__)
 
 # Don't include apostrophe
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
+
+
+def fmt_emoji_html(emoji: str) -> str:
+    if emoji.isdigit():  # custom emojis
+        return f'<tg-emoji emoji-id="{emoji}">❓</tg-emoji>'
+    return emoji
+
+
+# Count repeated emojis as well as emojis followed by a multiplier
+# Example: given "😁😈2" or "😁😈😈", the result is [('😁', 1), ('😈', 2)]
+def count_emojis(emoji_str: str) -> list[tuple[str, int]]:
+    result = Counter()
+    for m in re.finditer(
+        r'(?:<tg-emoji emoji-id="(\d+)">.*?</tg-emoji>|([^\d\s]))(\d*)',
+        emoji_str,
+    ):
+        result[m[1] or m[2]] += int(m[3] or 1)
+    return list(result.items())
 
 
 def get_username_by_id(user_id: int) -> str:

@@ -35,3 +35,6 @@ lucky_numbers = {
 # Aliases for the Jerk of the Day that will randomly rotate daily
 # Provide lowercase words in Nominative, Genitive, Genitive plural and Instrumental plural cases
 jerk_aliases = [["придурок", "придурка", "придурков", "придурками"]]
+
+# Replies to /talklike <botname>
+bot_talk = ["Мяу?", "Мяу", "Мяу мяу", "Мрррррр", "Мррр...", "=^_^=", "Муррр", "МЯЯЯЯЯЯУУУУ", "Мур мур", "мяв", "🐈", "🐈‍⬛"]

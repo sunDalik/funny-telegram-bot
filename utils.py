@@ -6,6 +6,7 @@ import random
 import db
 from db import U
 import re
+import regex
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,8 @@ def fmt_emoji_html(emoji: str) -> str:
 # Example: given "😁😈2" or "😁😈😈", the result is [('😁', 1), ('😈', 2)]
 def count_emojis(emoji_str: str) -> list[tuple[str, int]]:
     result = Counter()
-    for m in re.finditer(
-        r'(?:<tg-emoji emoji-id="(\d+)">.*?</tg-emoji>|([^\d\s]))(\d*)',
+    for m in regex.finditer(
+        r'(?:<tg-emoji emoji-id="(\d+)">.*?</tg-emoji>|((?!\d|\s)\X))(\d*)',
         emoji_str,
     ):
         result[m[1] or m[2]] += int(m[3] or 1)

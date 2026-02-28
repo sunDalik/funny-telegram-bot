@@ -25,6 +25,7 @@ import opinion
 import chalice
 import uptime
 import talk
+import stats
 from utils import PUNCTUATION_REGEX
 import difflib
 
@@ -565,7 +566,8 @@ async def post_init(a: Application) -> None:
         ("taki", "[difficulty] play a game of taki"),
         ("takistats", "[difficulty] get all-time stats for taki"),
         ("chalice", "<thing> how full is the chalice of thing?"),
-        ("uptime", "total time I've been running with no sleep")
+        ("uptime", "total time I've been running with no sleep"),
+        ("glazestats", "[person] who is glazing whom rn, optionally focusing on this person")
     ])
 
 
@@ -606,6 +608,7 @@ if __name__ == '__main__':
     mentions.subscribe(a)
     chalice.subscribe(a)
     uptime.subscribe(a)
+    stats.subscribe(a)
     talk.subscribe(a, again_setter)
 
 

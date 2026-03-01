@@ -1,12 +1,13 @@
 import logging
 import logging.handlers
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import Application, CallbackContext, CommandHandler
 import re
 import random
 import db
 from db import Message, M
-from utils import parse_userid, get_username_by_id
+from utils import parse_userid, get_username_by_id, fmt_linked_msg_html
 
 logger = logging.getLogger(__name__)
 again_setter = None
@@ -66,14 +67,14 @@ def try_find_opinion(messages, things, previous_results, user_input):
         # Only search for matches at the begining of words
         if all(re.search(regex, rnd_message.text) for regex in regexes) and rnd_message.text.lower() not in previous_results:
             if user_input.lower() == rnd_message.text.lower():
-                terrible_result = user_input
+                terrible_result = rnd_message
                 continue
 
             if len(rnd_message.text) <= 550:
-                return rnd_message.text
+                return rnd_message
             else:
-                long_result = rnd_message.text
-    
+                long_result = rnd_message
+
     if long_result is not None:
         return long_result
     
@@ -108,8 +109,8 @@ async def opinion(update: Update, context: CallbackContext, user_input, previous
         return
 
     if again_setter:
-        again_setter(lambda: opinion(update, context, user_input, previous_results + [result.lower()], from_user_id))
-    await update.message.reply_text(result, do_quote=False)
+        again_setter(lambda: opinion(update, context, user_input, previous_results + [result.text.lower()], from_user_id))
+    await update.message.reply_text(fmt_linked_msg_html(result.text, result.msg_id, update.message.chat_id), do_quote=False, parse_mode=ParseMode.HTML)
 
 
 def subscribe(a: Application, _again_setter):

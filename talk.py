@@ -7,7 +7,7 @@ from telegram.constants import ParseMode
 from telegram.ext import Application, CallbackContext, CommandHandler
 import db
 from db import M, MR
-from utils import parse_userid, get_username_by_id, fmt_emoji_html, count_emojis
+from utils import parse_userid, get_username_by_id, fmt_emoji_html, fmt_linked_msg_html, count_emojis
 from _secrets import bot_talk
 
 logger = logging.getLogger(__name__)
@@ -16,17 +16,19 @@ again_setter = None
 
 async def _talk_simple(update: Update, context: CallbackContext, previous_results: list, from_user_id=None):
     if from_user_id is not None and int(from_user_id) == context.bot.id:
-        texts = [t for t in bot_talk if t.lower() not in previous_results]
+        texts = [(None, t) for t in bot_talk if t.lower() not in previous_results]
         result = random.choice(texts) if texts else None
     elif from_user_id is not None:
-        texts = [r[M.TEXT] for r in db.get().execute(
-            f"SELECT {M.TEXT} FROM {M.TABLE} WHERE {M.USER_ID} = ? ORDER BY RANDOM()",
-            (from_user_id,)
-        )]
-        result = next((t for t in texts if t.lower() not in previous_results), None)
+        result = next((
+            (r[M.MSG_ID], r[M.TEXT])
+            for r in db.get().execute(f"""SELECT {M.MSG_ID}, {M.TEXT} FROM {M.TABLE}
+                                          WHERE {M.USER_ID} = ? ORDER BY RANDOM()""",
+                                      (from_user_id,))
+            if r[M.TEXT].lower() not in previous_results), None)
     else:
-        row = db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE} ORDER BY RANDOM() LIMIT 1").fetchone()
-        result = row[M.TEXT] if row else None
+        row = db.get().execute(f"""SELECT {M.MSG_ID}, {M.TEXT} FROM {M.TABLE}
+                                   ORDER BY RANDOM() LIMIT 1""").fetchone()
+        result = (row[M.MSG_ID], row[M.TEXT]) if row else None
 
     if result is None:
         if previous_results:
@@ -36,10 +38,14 @@ async def _talk_simple(update: Update, context: CallbackContext, previous_result
         else:
             await update.message.reply_text("Кажется никто никогда ничего не говорил", do_quote=False)
     else:
+        msg_id, text = result
         logger.info(f"  Result: {result}")
         if again_setter and from_user_id is not None:
-            again_setter(lambda: _talk_simple(update, context, previous_results + [result.lower()], from_user_id))
-        await update.message.reply_text(result, do_quote=False)
+            again_setter(lambda: _talk_simple(update, context, previous_results + [text.lower()], from_user_id))
+        if msg_id is not None:
+            await update.message.reply_text(fmt_linked_msg_html(text, msg_id, update.message.chat_id), do_quote=False, parse_mode=ParseMode.HTML)
+        else:
+            await update.message.reply_text(text, do_quote=False)
 
 
 async def _talk_reactions(update: Update, context: CallbackContext, emoji_str: str, previous_results: list[int], from_user_id=None):
@@ -68,7 +74,7 @@ async def _talk_reactions(update: Update, context: CallbackContext, emoji_str: s
         if row := db.get().execute(f"SELECT {M.TEXT} FROM {M.TABLE} WHERE {M.MSG_ID} = ?", (msg_id,)).fetchone():
             if again_setter:
                 again_setter(lambda: _talk_reactions(update, context, emoji_str, previous_results + [msg_id], from_user_id))
-            await update.message.reply_text(row[M.TEXT], do_quote=False)
+            await update.message.reply_text(fmt_linked_msg_html(row[M.TEXT], msg_id, update.message.chat_id), do_quote=False, parse_mode=ParseMode.HTML)
         else:
             await update.message.reply_text("О нет, я все забыл...", do_quote=False)
     else:

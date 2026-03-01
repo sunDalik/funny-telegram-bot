@@ -8,6 +8,7 @@ import db
 from db import M, MR, U
 import re
 import regex
+import html
 
 # Don't include apostrophe
 PUNCTUATION_REGEX = re.compile(r'[\s{}]+'.format(re.escape(r'!"#$%&()*+, -./:;<=>?@[\]^_`{|}~')))
@@ -33,6 +34,12 @@ def count_emojis(emoji_str: str) -> list[tuple[str, int]]:
     ):
         result[m[1] or m[2]] += int(m[3] or 1)
     return list(result.items())
+
+
+def fmt_linked_msg_html(text: str, msg_id: int, chat_id: int) -> str:
+    # Supergroup IDs are prefixed with -100, which is stripped in message links
+    msg_link = f'https://t.me/c/{str(chat_id).lstrip("-100")}/{msg_id}'
+    return f'{html.escape(text)} <a href="{msg_link}">⤴️</a>'
 
 
 async def fill_usernames(bot: Bot) -> tuple[int, int]:

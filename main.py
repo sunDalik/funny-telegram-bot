@@ -26,7 +26,7 @@ import chalice
 import uptime
 import talk
 import stats
-from utils import PUNCTUATION_REGEX
+from utils import PUNCTUATION_REGEX, fill_usernames
 import difflib
 
 rfh = logging.handlers.RotatingFileHandler(filename='debug.log', mode='w', maxBytes=2*1024*1024, backupCount=0,)
@@ -519,6 +519,11 @@ def again_setter(func):
 
 
 async def post_init(a: Application) -> None:
+    logger.info(f"Checking for missing usernames")
+    missing, filled = await fill_usernames(a.bot)
+    if missing:
+        logger.info(f"Filled {filled}/{missing} missing usernames")
+
     await a.bot.set_my_commands([
         ("ping", "am I alive?"),
         ("get", "<key> get value by key"),

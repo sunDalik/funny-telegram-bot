@@ -12,6 +12,9 @@ import redis_db
 import re
 import random
 import copy
+import logging
+
+logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 5
 
@@ -123,8 +126,12 @@ def get_taki_keyboard(guesses: List[int]) -> InlineKeyboardMarkup:
 async def takistart(update: Update, context: CallbackContext):
     # Do not allow starting a new game until the current one is finished (can be abused for stats)
     if len(games_data) > 0 and not games_data[-1].is_finished():
-        await update.message.reply_text("Эй, сначала закончи прошлую игру!", reply_to_message_id=games_data[-1].game_message_id.split('/')[1])
-        return
+        try:
+            await update.message.reply_text("Эй, сначала закончи прошлую игру!", reply_to_message_id=games_data[-1].game_message_id.split('/')[1])
+            return
+        # Sometimes might get exception if the bot cant find the message by the given reply_to_message_id
+        except Exception:
+            pass
 
     difficulty = DEFAULT_DIFFICULTY
     diff_match = re.match(r'/[\S]+\s+(\d+)', update.message.text)

@@ -3,7 +3,7 @@ import sys
 import sqlite3
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from db import M, MR, U
+from db import M, MR, U, GV
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'bot.db')
 
@@ -35,6 +35,16 @@ if __name__ == '__main__':
             {U.USER_ID}   INTEGER PRIMARY KEY,
             {U.USERNAME}  TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS {GV.TABLE} (
+            {GV.KEY}     TEXT NOT NULL,
+            {GV.TYPE}    TEXT NOT NULL,
+            {GV.DATA}    TEXT NOT NULL,
+            {GV.CAPTION} TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY ({GV.KEY})
+        );
+        CREATE INDEX IF NOT EXISTS idx_{GV.TABLE}_{GV.TYPE}
+            ON {GV.TABLE}({GV.TYPE});
     """)
     conn.commit()
     conn.close()

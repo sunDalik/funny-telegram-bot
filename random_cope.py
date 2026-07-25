@@ -2,13 +2,11 @@ from telegram import Update
 from telegram.ext import Application, CallbackContext, CommandHandler
 import random
 import asyncio
-import redis_db
 import logging
-from main import send_get_value, DICTIONARY_HASH, GIF_PREFIX, STICKER_PREFIX
+from getval import send_val, vals_of_type, all_keys, get_val, TYPE_GIF, TYPE_STICKER
 from opinion import opinion
 
 logger = logging.getLogger(__name__)
-r = redis_db.connect()
 
 async def random_cope(update: Update, context: CallbackContext):
     options = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33]
@@ -54,23 +52,19 @@ async def random_cope(update: Update, context: CallbackContext):
     elif res == 17:
         await update.message.reply_text(f"Я не вижу вашего коупа", do_quote=False)
     elif res == 18:
-        values = list(r.hgetall(DICTIONARY_HASH).values())
-        values = [val for val in values if val.startswith(STICKER_PREFIX)]
-        if len(values) == 0:
+        vals = vals_of_type(TYPE_STICKER)
+        if len(vals) == 0:
             await update.message.reply_animation("CgACAgQAAx0CT_IhJQABBXMmY7qlHgn9TsIE04UL3TKhfZGCmOgAAmIDAAJ43PVSPgZ0f8U9qU4tBA", do_quote=False)
             return
-        random.shuffle(values)
-        file_id = values[0][len(STICKER_PREFIX):]
+        file_id = random.choice(vals).data
         logger.info(f"fileid {file_id}")
         await update.message.reply_sticker(file_id, do_quote=False)
     elif res == 19:
-        values = list(r.hgetall(DICTIONARY_HASH).values())
-        values = [val for val in values if val.startswith(GIF_PREFIX)]
-        if len(values) == 0:
+        vals = vals_of_type(TYPE_GIF)
+        if len(vals) == 0:
             await update.message.reply_animation("CgACAgQAAx0CT_IhJQABBXMmY7qlHgn9TsIE04UL3TKhfZGCmOgAAmIDAAJ43PVSPgZ0f8U9qU4tBA", do_quote=False)
             return
-        random.shuffle(values)
-        file_id = values[0][len(GIF_PREFIX):]
+        file_id = random.choice(vals).data
         logger.info(f"fileid {file_id}")
         await update.message.reply_animation(file_id, do_quote=False)
     elif res == 20:
@@ -78,18 +72,16 @@ async def random_cope(update: Update, context: CallbackContext):
     elif res == 21:
         await update.message.reply_text(f"Кто-то сомневается в твоем коупе? Вызови его на дуэль в /connectfour и посмотри чей коуп победит!", do_quote=False)
     elif res == 22:
-        keys = list(r.hgetall(DICTIONARY_HASH).keys())
-        keys = [key for key in keys if key.lower().startswith("коуп")]
+        keys = [key for key in all_keys() if key.lower().startswith("коуп")]
         if len(keys) == 0:
             await update.message.reply_animation("CgACAgQAAx0CT_IhJQABBXMmY7qlHgn9TsIE04UL3TKhfZGCmOgAAmIDAAJ43PVSPgZ0f8U9qU4tBA", do_quote=False)
             return
-        random.shuffle(keys)
-        key = keys[0]
+        key = random.choice(keys)
         await update.message.reply_text(f"/get {key}", do_quote=False)
         await asyncio.sleep(0.5)
         logger.info(f"cope get {key}")
-        value = r.hget(DICTIONARY_HASH, key)
-        await send_get_value(update, key, value, show_header=True)
+        val = get_val(key)
+        await send_val(update.get_bot(), update.message.chat_id, None, key, val, show_header=True)
     elif res == 23:
         await opinion(update, context, "коуп")
     elif res == 24:

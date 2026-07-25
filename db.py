@@ -43,9 +43,24 @@ class User:
     USERNAME: ClassVar[str] = "username"
 
 
+@dataclass
+class GetVal:
+    key: str
+    type: str
+    data: str
+    caption: str = ""
+
+    TABLE: ClassVar[str] = "get_vals"
+    KEY: ClassVar[str] = "key"
+    TYPE: ClassVar[str] = "type"
+    DATA: ClassVar[str] = "data"
+    CAPTION: ClassVar[str] = "caption"
+
+
 M = Message
 MR = MessageReaction
 U = User
+GV = GetVal
 
 
 class Database:
@@ -96,7 +111,7 @@ def init(path: str) -> Database:
     global _db
     _db = Database(path)
     # Check schema
-    for table in (M.TABLE, MR.TABLE, U.TABLE):
+    for table in (M.TABLE, MR.TABLE, U.TABLE, GV.TABLE):
         _db.execute(f"SELECT 1 FROM {table} LIMIT 1")
     return _db
 

@@ -1,11 +1,13 @@
 import sys
 import os
 import json
-import redis
 import re
 
-# TODO Move all redis data (schema, port, db index) into a separate file?
-DICTIONARY_HASH = 'dictionary'
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from db import Database, GetVal
+import getval
+
+DB_PATH = os.path.join(os.path.dirname(__file__), '../bot.db')
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -18,7 +20,7 @@ if __name__ == '__main__':
         print("Operation aborted")
         sys.exit(1)
 
-    r = redis.Redis(host='localhost', port=6379, db=1)
+    db = Database(DB_PATH)
 
     with open(json_path, 'r') as f:
         data = json.load(f)
@@ -33,8 +35,9 @@ if __name__ == '__main__':
             if match is None:
                 continue
             key = match.group(1)
-            val = match.group(2)
-            r.hset(DICTIONARY_HASH, key, val)
+            type, val_data, val_caption = getval.parse_set_data(match.group(2))
+            db.insert(GetVal(key=key, type=type, data=val_data, caption=val_caption))
             sets_found += 1
-            #print(f"Set {key} = {val}")
+            #print(f"Set {key} = {val_data}")
+    db.commit()
     print(f"Successfuly imported {sets_found} sets")

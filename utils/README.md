@@ -14,3 +14,6 @@ Reads the Telegram chat export `<json>` into the SQLite database
 
 ### import_sublime_sets.py `<json>`
 Imports all the /set commands from the Telegram chat export `<json>` into the Redis database
+
+### import_get_vals_from_redis.py
+Imports all the /set commands from the old Redis database into the SQLite database

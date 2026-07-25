@@ -6,7 +6,6 @@ from telegram import Update, ReactionTypeEmoji, ReactionTypeCustomEmoji, Reactio
 from telegram.ext import Application, ApplicationBuilder, ApplicationHandlerStop, CallbackContext, CommandHandler, filters, MessageHandler, TypeHandler, MessageReactionHandler
 from telegram.constants import ParseMode
 import re
-import json
 import random
 import markov
 import slap_game
@@ -16,9 +15,9 @@ import connect_four
 import party
 import hangman
 import random_cope
-import redis_db
 import db
 from db import M, MR
+import getval
 import taki
 import mentions
 import opinion
@@ -27,25 +26,12 @@ import uptime
 import talk
 import stats
 from utils import PUNCTUATION_REGEX, fill_usernames
-import difflib
 import time
 
 rfh = logging.handlers.RotatingFileHandler(filename='debug.log', mode='w', maxBytes=2*1024*1024, backupCount=0,)
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO, handlers=[rfh, logging.StreamHandler()])
 logger = logging.getLogger(__name__)
-
-r = redis_db.connect()
-DICTIONARY_HASH = 'dictionary'
-MAX_ITERS = 999_999
-POLL_PREFIX =  "#!/Poll"
-STICKER_PREFIX =  "#!/Sticker"
-GIF_PREFIX =  "#!/GifAnimation"
-PHOTO_PREFIX =  "#!/PhotoFile"
-CAPTION_DELIMITER =  "/*#!&!#*/"
-VIDEO_PREFIX =  "#!/VideoFile"
-VOICE_PREFIX =  "#!/VoiceMessage"
-RND_GET_PREFIX =  "#!/RandomizedGet"
 
 again_function = None
 
@@ -93,251 +79,6 @@ async def casino(update: Update, context: CallbackContext):
 
 async def contribute(update: Update, context: CallbackContext):
     await update.message.reply_text("https://github.com/sunDalik/funny-telegram-bot", do_quote=False)
-
-
-async def getDict(update: Update, context: CallbackContext):
-    logger.info(f"[getDict] {update.message.text}")
-    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
-    if (match == None):
-        await update.message.reply_text("Ты чего хочешь-то?", do_quote=True)
-        return
-    key = match.group(1).strip()
-    key, val = get_close_value_by_key(key)
-
-    if val is None:
-        await update.message.reply_text("Не помню такого", do_quote=True)
-        return
-    await send_get_value(update, key, val, show_header=True)
-
-async def rand_get(update: Update, context: CallbackContext, previous_results=[]):
-    logger.info(f"[rand_get] {update.message.text}")
-    match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
-    if match is None:
-        search_string = ""
-    else:
-        search_string = match.group(1)
-    keys = list(r.hgetall(DICTIONARY_HASH).keys())
-    keys = [key for key in keys if search_string.lower() in key.lower() and key not in previous_results]
-    if len(keys) == 0:
-        if len(previous_results) > 0:
-            if search_string == "":
-                await update.message.reply_text("Я уже выдал все, что я знаю T__T", do_quote=False)
-            else:
-                await update.message.reply_text(f"Я уже выдал все геты по запросу \"{search_string}\" T__T", do_quote=False)
-        else:
-            if search_string == "":
-                await update.message.reply_text("Не могу найти ни одного гета...", do_quote=False)
-            else:
-                await update.message.reply_text(f"Не могу найти ни одного гета по запросу \"{search_string}\"...", do_quote=False)
-        return
-    key = random.choice(keys)
-    value = r.hget(DICTIONARY_HASH, key)
-    global again_function
-    again_function = lambda: rand_get(update, context, previous_results + [key])
-    await send_get_value(update, key, value, show_header=True)
-
-
-async def rawGetDict(update: Update, context: CallbackContext):
-    logger.info(f"[rawGetDict] {update.message.text}")
-    match = re.match(r'/[\S]+\s+(.+)', update.message.text)
-    if match is None:
-        await update.message.reply_text("Ты чего хочешь-то?", do_quote=True)
-        return
-    key = match.group(1).strip()
-    key, val = get_close_value_by_key(key)
-        
-    if val is None:
-        await update.message.reply_text("Не помню такого", do_quote=True)
-        return
-
-    if val.startswith(RND_GET_PREFIX):
-        await update.message.reply_text(f"/rndset {key} {val[len(RND_GET_PREFIX):]}", do_quote=False)
-    else:
-        await update.message.reply_text(f"/set {key} {val}", do_quote=False)
-
-    
-def get_close_value_by_key(key: str):
-    val = r.hget(DICTIONARY_HASH, key)
-    if val is None:
-        keys = list(r.hgetall(DICTIONARY_HASH).keys())
-        close_matches = difflib.get_close_matches(key, keys, n=1)
-        if len(close_matches) > 0:
-            key = close_matches[0]
-            val = r.hget(DICTIONARY_HASH, key)
-    return key, val
-
-async def send_get_value(update: Update, key: str, val, show_header, recursion_level = 0):
-    '''
-     A very hacky solution that I dont like! I think all dictionary entries should be json values with a type and a value
-     So instead of storing plain text we would store {"type": "text", "value": "This is my text"}
-    '''
-    if val is None:
-        await update.message.reply_text(f"Что-то я не помню что такое {key} :<")
-    elif val.startswith(POLL_PREFIX + "{"):
-        poll_data = json.loads(val[len(POLL_PREFIX):])
-        await update.message.reply_poll(poll_data.get("question", ""), poll_data.get("options", []), is_anonymous=poll_data.get("is_anonymous", False), allows_multiple_answers=poll_data.get("allows_multiple_answers", False), do_quote=False)
-    elif val.startswith(STICKER_PREFIX):
-        file_id = val[len(STICKER_PREFIX):]
-        await update.message.reply_sticker(file_id, do_quote=False)
-    elif val.startswith(GIF_PREFIX):
-        file_id = val[len(GIF_PREFIX):]
-        # reply_document should also work
-        await update.message.reply_animation(file_id, do_quote=False)
-    elif val.startswith(PHOTO_PREFIX):
-        values = val[len(PHOTO_PREFIX):].split(CAPTION_DELIMITER, maxsplit=1)
-        file_id = values[0]
-        caption = values[1] if len(values) > 1 else ""
-        await update.message.reply_photo(file_id, do_quote=False, caption=caption)
-    elif val.startswith(VIDEO_PREFIX):
-        values = val[len(VIDEO_PREFIX):].split(CAPTION_DELIMITER, maxsplit=1)
-        file_id = values[0]
-        caption = values[1] if len(values) > 1 else ""
-        await update.message.reply_video(file_id, do_quote=False, caption=caption)
-    elif val.startswith(VOICE_PREFIX):
-        file_id = val[len(VOICE_PREFIX):]
-        # reply_document should also work
-        await update.message.reply_voice(file_id, do_quote=False)
-    elif val.startswith(RND_GET_PREFIX):
-        if recursion_level > 100:
-            await update.message.reply_text("Мужик иди в задницу со своей рекурсией")
-            return
-        values = [thing for thing in re.split(r'\s+', val[len(RND_GET_PREFIX):]) if thing != ""]
-        random.shuffle(values)
-        sent_success = False
-        # Send first non-None value
-        for v in values:
-            chosen_key = v
-            chosen_key, chosen_value = get_close_value_by_key(chosen_key)
-            if chosen_value is not None:
-                sent_success = True
-                await send_get_value(update, chosen_key, chosen_value, show_header=show_header, recursion_level=recursion_level + 1)
-                break
-        # If all values are None send the sad notification
-        if not sent_success and len(values) >= 1:
-            await send_get_value(update, values[0], None, show_header=show_header, recursion_level=recursion_level + 1)
-    elif val == '🎲' or val == '🎯' or val == '🏀' or val == '⚽️' or val == '🎳' or val == '🎰':
-        await update.message.reply_dice(emoji=val, do_quote=False)
-    else:
-        if show_header:
-            await update.message.reply_text(f"{key}\n{val}", do_quote=False)
-        else:
-            await update.message.reply_text(f"{val}", do_quote=False)
-
-
-async def rndSetDict(update: Update, context: CallbackContext):
-    logger.info(f"[rndSetDict] {update.message.text}")
-    match = re.match(r'/[\S]+\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
-    if match is None:
-        match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
-        if match and update.message.reply_to_message is not None and update.message.reply_to_message.text is not None:
-            key = match.group(1)
-            values_text = update.message.reply_to_message.text
-        else:
-            await update.message.reply_text("Что-то я ничего не понял. Тебе нужно написать в качестве значения разделенный пробелами список ключей, по которым будет делаться /get. Например /rndset key funnyget1 funnyget2 funnyget3", do_quote=True)
-            return
-    else:
-        key = match.group(1)
-        values_text = match.group(2)
-    old_value = r.hget(DICTIONARY_HASH, key)
-    r.hset(DICTIONARY_HASH, key, RND_GET_PREFIX + values_text)
-    await send_confirm_set_value(update, key, old_value, False)
-
-
-async def setDict(update: Update, context: CallbackContext):
-    logger.info(f"[setDict] {update.message.text}")
-    match = re.match(r'/[\S]+\s+([\S]+)\s+(.+)', update.message.text, re.DOTALL)
-    set_as_link = False
-    if match is None:
-        match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
-        if match and update.message.reply_to_message is not None:
-            key = match.group(1)
-            poll = update.message.reply_to_message.poll
-            if poll is not None:
-                poll_json = {"question": poll.question, "options": [option.text for option in poll.options], "is_anonymous": poll.is_anonymous, "allows_multiple_answers": poll.allows_multiple_answers}
-                val = POLL_PREFIX + json.dumps(poll_json)
-            elif update.message.reply_to_message.sticker is not None:
-                # It's important to note that file_ids are persistent BUT they can't be shared between bots. So it's impossible to fully port the database from one bot to another
-                # file_unique_ids are persistent between bots but you can't send or download them so they are useless
-                val = STICKER_PREFIX + update.message.reply_to_message.sticker.file_id
-            elif update.message.reply_to_message.animation is not None:
-                val = GIF_PREFIX + update.message.reply_to_message.animation.file_id
-            # I don't know why but some GIF animations are only stored in .document but not in .animation even though they behave the same
-            # Maybe we can unify this behavior IF all of the animations are stored in document?
-            elif update.message.reply_to_message.document is not None and update.message.reply_to_message.document.mime_type == 'image/gif':
-                val = GIF_PREFIX + update.message.reply_to_message.document.file_id
-            elif update.message.reply_to_message.photo is not None and len(update.message.reply_to_message.photo) > 0:
-                # Messages store photos in an array where the last object of an array is the highest resolution version of a photo
-                file_id = update.message.reply_to_message.photo[-1].file_id
-                caption = update.message.reply_to_message.caption
-                if caption is None:
-                    caption = ""
-                val = PHOTO_PREFIX + file_id + CAPTION_DELIMITER + caption 
-            elif update.message.reply_to_message.video is not None:
-                file_id = update.message.reply_to_message.video.file_id
-                caption = update.message.reply_to_message.caption
-                if caption is None:
-                    caption = ""
-                val = VIDEO_PREFIX + file_id + CAPTION_DELIMITER + caption 
-            elif update.message.reply_to_message.voice is not None:
-                val = VOICE_PREFIX + update.message.reply_to_message.voice.file_id
-            elif update.message.reply_to_message.text is not None:   
-                val = update.message.reply_to_message.text
-            elif update.message.reply_to_message.link is not None:
-                set_as_link = True
-                val = update.message.reply_to_message.link
-            else:
-                await update.message.reply_text("Что-то я ничего не понял...", do_quote=True)
-                return
-        else:
-            await update.message.reply_text("Что-то я ничего не понял. Удали свой /set и напиши нормально", do_quote=True)
-            return
-    else:
-        key = match.group(1)
-        val = match.group(2)
-    old_value = r.hget(DICTIONARY_HASH, key)
-    r.hset(DICTIONARY_HASH, key, val)
-    await send_confirm_set_value(update, key, old_value, set_as_link)
-
-
-async def send_confirm_set_value(update: Update, key: str, old_value, set_as_link: bool):
-    extra_text = " (ссылкой на сообщение)" if set_as_link else ""
-    if old_value is not None:
-        if old_value.startswith(POLL_PREFIX):
-            await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там был какой-то опрос", do_quote=False)
-        elif old_value.startswith(STICKER_PREFIX):
-            await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там был какой-то стикер", do_quote=False)
-        elif old_value.startswith(GIF_PREFIX):
-            await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то гифка", do_quote=False)
-        elif old_value.startswith(PHOTO_PREFIX):
-            await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там была какая-то картинка", do_quote=False)
-        elif old_value.startswith(VIDEO_PREFIX):
-            await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было какое-то видео", do_quote=False)
-        elif old_value.startswith(VOICE_PREFIX):
-            await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было какое-то голосовое", do_quote=False)
-        elif old_value.startswith(RND_GET_PREFIX):
-            await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было что-то рандомное", do_quote=False)
-        else:
-            output_limit = 100
-            if len(old_value) > output_limit:
-                await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было \"{old_value[0:output_limit]}...\" и т.д.", do_quote=False)
-            else:
-                await update.message.reply_text(f"Запомнил {key}{extra_text}! Раньше там было \"{old_value}\"", do_quote=False)
-    else:
-        await update.message.reply_text(f"Запомнил {key}{extra_text}!", do_quote=False)
-
-
-async def delDict(update: Update, context: CallbackContext):
-    logger.info(f"[delDict] {update.message.text}")
-    match = re.match(r'/[\S]+\s+([\S]+)', update.message.text)
-    if (match == None):
-        await update.message.reply_text("Не понял, а что удалить-то хочешь?")
-        return
-    key = match.group(1)
-    val = r.hdel(DICTIONARY_HASH, key)
-    if (val == 0):
-        await update.message.reply_text(f"Чего-чего? \"{key}\"? Я такого не знаю", do_quote=False)
-    else:
-        await update.message.reply_text(f"Ок, я удалил ключ \"{key}\"", do_quote=False)
 
 
 def sentence_matches_definition(definition: str, sentence: list) -> bool:
@@ -431,30 +172,6 @@ async def explain(update: Update, context: CallbackContext, previous_results = [
     await update.message.reply_text(f"<b>{user_input}</b>\n{result}", parse_mode=ParseMode.HTML, do_quote=False)
 
 
-async def getAll(update: Update, context: CallbackContext):
-    logger.info("[getAll]")
-    match = re.match(r'/[\S]+\s+([^\s]+)', update.message.text)
-    search_string = ""
-    if match:
-        search_string = match.group(1)
-    keys = list(r.hgetall(DICTIONARY_HASH).keys())
-    if search_string != "":
-        keys = [key for key in keys if search_string.lower() in key.lower()]
-    keys.sort()
-    if (len(keys) == 0):
-        if (search_string != ""):
-            await update.message.reply_text(f"Не нашел никаких гетов по запросу \"{search_string}\" >.>", do_quote=False)
-            return
-        else:
-            await update.message.reply_text(f"Я пока не знаю никаких гетов... Но ты можешь их добавить командой /set!", do_quote=False)
-            return
-    header = 'Так вот же все ГЕТЫ:\n\n' if search_string == "" else f'Вот все ГЕТЫ с \"{search_string}\":\n\n'
-    response = header + ", ".join(keys)
-    # Telegram has a limit of 4096 characters per message and it doesn't split them automatically
-    msgs = [response[i:i + 4096] for i in range(0, len(response), 4096)]
-    for text in msgs:
-        await update.message.reply_text(text, do_quote=False)
-
 async def error(update: object, context: CallbackContext):
     tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
     logger.warning('Exception in update "%s"\n%s\n%s', update, context.error, "".join(tb_list))
@@ -547,16 +264,14 @@ async def debug_file_id(update: Update, context: CallbackContext):
 
 async def handle_custom_command(update: Update, context: CallbackContext):
     logger.info(f"[custom] {update.message.text}")
-    match = re.match(r'(/[^\s@]+)', update.message.text)
-    if match is None:
+    if (match := re.match(r'(/[^\s@]+)', update.message.text)) is None:
         return
     key = match.group(1).strip()
-    val = r.hget(DICTIONARY_HASH, key)
-    
-    if val is None:
+
+    if (val := getval.get_val(key)) is None:
         return
-    
-    await send_get_value(update, key, val, show_header=False)
+
+    await getval.send_val(update.get_bot(), update.message.chat_id, None, key, val, show_header=False)
 
 
 def again_setter(func):
@@ -635,16 +350,10 @@ if __name__ == '__main__':
     a.add_handler(MessageReactionHandler(handle_reactions))
 
     a.add_handler(CommandHandler("ping", ping))
-    a.add_handler(CommandHandler("get", getDict))
-    a.add_handler(CommandHandler("rawget", rawGetDict))
-    a.add_handler(CommandHandler("set", setDict))
-    a.add_handler(CommandHandler("rndset", rndSetDict))
+    getval.subscribe(a, again_setter)
     a.add_handler(CommandHandler(("explain", "e"), explain))
     opinion.subscribe(a, again_setter)
     a.add_handler(CommandHandler("contribute", contribute))
-    a.add_handler(CommandHandler("getall", getAll))
-    a.add_handler(CommandHandler(("randget", "rg"), rand_get))
-    a.add_handler(CommandHandler("del", delDict))
     a.add_handler(CommandHandler(("again", "a"), again))
     a.add_handler(CommandHandler("dice", dice))
     a.add_handler(CommandHandler(("slot", "casino"), casino))
@@ -668,6 +377,7 @@ if __name__ == '__main__':
 
     a.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.FORWARDED, handle_normal_messages))
     #a.add_handler(MessageHandler(filters.Sticker.ALL | filters.ANIMATION, debug_file_id))
+    # Unknown /commands are looked up as keys, so this has to be added last
     a.add_handler(MessageHandler(filters.COMMAND, handle_custom_command))
     a.add_error_handler(error)
 

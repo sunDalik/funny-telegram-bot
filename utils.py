@@ -1,5 +1,5 @@
 from _secrets import user_aliases, lucky_numbers, secrets_chat_ids
-from telegram import Bot
+from telegram import Bot, ReplyParameters
 from telegram.ext import CallbackContext
 from telegram.error import TelegramError
 from collections import Counter
@@ -39,6 +39,12 @@ def count_emojis(emoji_str: str) -> list[tuple[str, int]]:
     ):
         result[m[1] or m[2]] += int(m[3] or 1)
     return list(result.items())
+
+
+def reply_params(msg_id: int | None) -> ReplyParameters | None:
+    if msg_id is None:
+        return None
+    return ReplyParameters(message_id=msg_id, allow_sending_without_reply=True)
 
 
 def fmt_linked_msg_html(text: str, msg_id: int, chat_id: int) -> str:

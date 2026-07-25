@@ -57,10 +57,27 @@ class GetVal:
     CAPTION: ClassVar[str] = "caption"
 
 
+@dataclass
+class GetJob:
+    msg_id: int
+    chat_id: int
+    user_id: int
+    get_key: str
+    target_ts: int
+
+    TABLE: ClassVar[str] = "get_jobs"
+    MSG_ID: ClassVar[str] = "msg_id"
+    CHAT_ID: ClassVar[str] = "chat_id"
+    USER_ID: ClassVar[str] = "user_id"
+    GET_KEY: ClassVar[str] = "get_key"
+    TARGET_TS: ClassVar[str] = "target_ts"
+
+
 M = Message
 MR = MessageReaction
 U = User
 GV = GetVal
+GJ = GetJob
 
 
 class Database:
@@ -111,7 +128,7 @@ def init(path: str) -> Database:
     global _db
     _db = Database(path)
     # Check schema
-    for table in (M.TABLE, MR.TABLE, U.TABLE, GV.TABLE):
+    for table in (M.TABLE, MR.TABLE, U.TABLE, GV.TABLE, GJ.TABLE):
         _db.execute(f"SELECT 1 FROM {table} LIMIT 1")
     return _db
 

@@ -1,13 +1,17 @@
-from telegram import Update, Bot
+from _secrets import banned_user_ids
+from telegram import Bot, Update, ReplyParameters
+from telegram.constants import ParseMode
 from telegram.ext import Application, CallbackContext, CommandHandler
+import asyncio
 import difflib
 import json
 import logging
 import random
 import re
+import time
 import db
-from db import GV
-from utils import reply_params
+from db import GV, GJ
+from utils import CommandTrigger, fmt_linked_msg_html
 
 logger = logging.getLogger(__name__)
 
@@ -118,49 +122,53 @@ def vals_of_type(type: str) -> list[db.GetVal]:
     return db.get().fetch_many(db.GetVal, f"SELECT * FROM {GV.TABLE} WHERE {GV.TYPE}=?", (type,))
 
 
-async def send_val(bot: Bot, chat_id: int, reply_to: int | None, key: str, val: db.GetVal | None,
+async def send_val(bot: Bot, trigger: CommandTrigger, key: str, val: db.GetVal | None,
                    show_header: bool, recursion_level: int = 0):
-    reply = reply_params(reply_to)
     if val is None:
-        await bot.send_message(chat_id, f"Что-то я не помню что такое {key} :<", reply_parameters=reply)
+        await bot.send_message(trigger.chat_id, f"Что-то я не помню что такое {key} :<")
     elif val.type == TYPE_POLL:
         poll_data = _load_json(val.data) or {}
-        await bot.send_poll(chat_id, poll_data.get("question", ""), poll_data.get("options", []),
+        await bot.send_poll(trigger.chat_id, poll_data.get("question", ""), poll_data.get("options", []),
                             is_anonymous=poll_data.get("is_anonymous", False),
-                            allows_multiple_answers=poll_data.get("allows_multiple_answers", False),
-                            reply_parameters=reply)
+                            allows_multiple_answers=poll_data.get("allows_multiple_answers", False))
     elif val.type == TYPE_STICKER:
-        await bot.send_sticker(chat_id, val.data, reply_parameters=reply)
+        await bot.send_sticker(trigger.chat_id, val.data)
     elif val.type == TYPE_GIF:
-        # send_document should also work
-        await bot.send_animation(chat_id, val.data, reply_parameters=reply)
+        await bot.send_animation(trigger.chat_id, val.data)
     elif val.type == TYPE_PHOTO:
-        await bot.send_photo(chat_id, val.data, caption=val.caption, reply_parameters=reply)
+        await bot.send_photo(trigger.chat_id, val.data, caption=val.caption)
     elif val.type == TYPE_VIDEO:
-        await bot.send_video(chat_id, val.data, caption=val.caption, reply_parameters=reply)
+        await bot.send_video(trigger.chat_id, val.data, caption=val.caption)
     elif val.type == TYPE_VOICE:
-        # send_document should also work
-        await bot.send_voice(chat_id, val.data, reply_parameters=reply)
+        await bot.send_voice(trigger.chat_id, val.data)
     elif val.type == TYPE_DICE:
-        await bot.send_dice(chat_id, emoji=val.data, reply_parameters=reply)
+        await bot.send_dice(trigger.chat_id, emoji=val.data)
     elif val.type == TYPE_RND:
         if recursion_level > 100:
-            await bot.send_message(chat_id, "Мужик иди в задницу со своей рекурсией", reply_parameters=reply)
+            await bot.send_message(trigger.chat_id, "Мужик иди в задницу со своей рекурсией")
             return
         keys = [thing for thing in re.split(r'\s+', val.data) if thing != ""]
         random.shuffle(keys)
         # Send the first key that resolves to something
         for chosen_key in keys:
             if (chosen := get_close_val(chosen_key)) is not None:
-                await send_val(bot, chat_id, reply_to, chosen.key, chosen, show_header=show_header,
+                await send_val(bot, trigger, chosen.key, chosen, show_header=show_header,
                                recursion_level=recursion_level + 1)
                 return
         # If none of them do, send the sad notification
         if len(keys) >= 1:
-            await send_val(bot, chat_id, reply_to, keys[0], None, show_header=show_header,
+            await send_val(bot, trigger, keys[0], None, show_header=show_header,
                            recursion_level=recursion_level + 1)
     else:
-        await bot.send_message(chat_id, f"{key}\n{val.data}" if show_header else val.data, reply_parameters=reply)
+        await bot.send_message(trigger.chat_id, f"{key}\n{val.data}" if show_header else val.data)
+
+
+async def send_get_response(bot: Bot, trigger: CommandTrigger, key: str, show_header: bool):
+    if (val := get_close_val(key)) is not None:
+        await send_val(bot, trigger, val.key, val, show_header=show_header)
+    else:
+        await bot.send_message(trigger.chat_id, "Не помню такого", reply_parameters=ReplyParameters(
+            message_id=trigger.msg_id, allow_sending_without_reply=True))
 
 
 async def handle_get(update: Update, context: CallbackContext):
@@ -168,11 +176,8 @@ async def handle_get(update: Update, context: CallbackContext):
     if (match := re.match(r'/[\S]+\s+(.+)', update.message.text)) is None:
         await update.message.reply_text("Ты чего хочешь-то?", do_quote=True)
         return
-
-    if (val := get_close_val(update.message.chat_id, match.group(1).strip())) is None:
-        await update.message.reply_text("Не помню такого", do_quote=True)
-        return
-    await send_val(update.get_bot(), update.message.chat_id, None, val.key, val, show_header=True)
+    key = match.group(1).strip()
+    await send_get_response(update.get_bot(), CommandTrigger.from_update(update), key, show_header=True)
 
 
 async def handle_randget(update: Update, context: CallbackContext, previous_results=[]):
@@ -195,7 +200,7 @@ async def handle_randget(update: Update, context: CallbackContext, previous_resu
     key = random.choice(keys)
     val = get_val(key)
     again_setter(lambda: handle_randget(update, context, previous_results + [key]))
-    await send_val(update.get_bot(), update.message.chat_id, None, key, val, show_header=True)
+    await send_val(update.get_bot(), CommandTrigger.from_update(update), key, val, show_header=True)
 
 
 async def handle_rawget(update: Update, context: CallbackContext):
@@ -206,7 +211,6 @@ async def handle_rawget(update: Update, context: CallbackContext):
     if (val := get_close_val(match.group(1).strip())) is None:
         await update.message.reply_text("Не помню такого", do_quote=True)
         return
-
     if val.type == TYPE_RND:
         await update.message.reply_text(f"/rndset {val.key} {val.data}", do_quote=False)
     else:
@@ -326,6 +330,75 @@ async def handle_getall(update: Update, context: CallbackContext):
             await update.message.reply_text(f"Я пока не знаю никаких гетов... Но ты можешь их добавить командой /set!", do_quote=False)
 
 
+_tget_poller_task = None
+
+
+def del_tget(chat_id: int, msg_id: int):
+    db.get().execute(f"DELETE FROM {GJ.TABLE} WHERE {GJ.CHAT_ID}=? AND {GJ.MSG_ID}=?",
+                     (chat_id, msg_id))
+    db.get().commit()
+
+
+async def handle_tget(update: Update, context: CallbackContext):
+    msg = update.effective_message
+    if msg is None or msg.text is None or msg.from_user is None or msg.from_user.id in banned_user_ids:
+        return
+    logger.info(f"[tget] {msg.text}")
+
+    editing_prev_tget = db.get().execute(f"SELECT 1 FROM {GJ.TABLE} WHERE {GJ.CHAT_ID}=? AND {GJ.MSG_ID}=?",
+                                         (msg.chat_id, msg.message_id)).fetchone() is not None
+
+    if (match := re.match(r'/[^\s@]+(?:@\S+)?\s+(\d+)\s+(\S+)', msg.text)) is None:
+        if editing_prev_tget:
+            del_tget(msg.chat_id, msg.message_id)
+        else:
+            await msg.reply_text("Напиши задержку в минутах и какой гет тебе выдать: /tget 30 dtg", do_quote=True)
+        return
+
+    delay_min, key = int(match.group(1)), match.group(2)
+    if delay_min == 0:
+        if editing_prev_tget:
+            del_tget(msg.chat_id, msg.message_id)
+        await send_get_response(update.get_bot(), CommandTrigger.from_update(update), key, show_header=True)
+        return
+
+    db.get().insert(db.GetJob(msg_id=msg.message_id, chat_id=msg.chat_id, user_id=msg.from_user.id,
+                              get_key=key, target_ts=int(time.time()) + delay_min * 60))
+    db.get().commit()
+    await update.get_bot().set_message_reaction(msg.chat_id, msg.message_id, "👌")
+
+
+async def send_due_tgets(bot: Bot):
+    jobs = db.get().fetch_many(db.GetJob, f"SELECT * FROM {GJ.TABLE} WHERE {GJ.TARGET_TS}<=? ORDER BY {GJ.TARGET_TS}",
+                               (int(time.time()),))
+    for job in jobs:
+        del_tget(job.chat_id, job.msg_id)
+        logger.info(f"[tget] Sending timed \"{job.get_key}\" for message {job.msg_id} in chat {job.chat_id}")
+        try:
+            trigger = CommandTrigger(chat_id=job.chat_id, msg_id=job.msg_id, user_id=job.user_id)
+            val = get_close_val(job.get_key)
+            key = val.key if val else job.get_key
+            timer = fmt_linked_msg_html(f"⏰ {key}", job.msg_id, job.chat_id)
+            await bot.send_message(job.chat_id, timer, parse_mode=ParseMode.HTML)
+            await send_val(bot, trigger, key, val, show_header=False)
+        except Exception:
+            logger.exception(f"Failed to send timed \"{job.get_key}\"")
+
+
+async def tget_poll_loop(bot: Bot):
+    while True:
+        await asyncio.sleep(25)
+        try:
+            await send_due_tgets(bot)
+        except Exception:
+            logger.exception("tget poller iteration failed")
+
+
+def start_tget_poller(bot: Bot) -> None:
+    global _tget_poller_task
+    _tget_poller_task = asyncio.create_task(tget_poll_loop(bot))
+
+
 def subscribe(a: Application, _again_setter):
     a.add_handler(CommandHandler("get", handle_get))
     a.add_handler(CommandHandler("rawget", handle_rawget))
@@ -334,5 +407,6 @@ def subscribe(a: Application, _again_setter):
     a.add_handler(CommandHandler("getall", handle_getall))
     a.add_handler(CommandHandler(("randget", "rg"), handle_randget))
     a.add_handler(CommandHandler("del", handle_del))
+    a.add_handler(CommandHandler("tget", handle_tget))
     global again_setter
     again_setter = _again_setter

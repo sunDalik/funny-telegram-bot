@@ -25,7 +25,7 @@ import chalice
 import uptime
 import talk
 import stats
-from utils import PUNCTUATION_REGEX, fill_usernames
+from utils import PUNCTUATION_REGEX, CommandTrigger, fill_usernames
 import time
 
 rfh = logging.handlers.RotatingFileHandler(filename='debug.log', mode='w', maxBytes=2*1024*1024, backupCount=0,)
@@ -271,7 +271,7 @@ async def handle_custom_command(update: Update, context: CallbackContext):
     if (val := getval.get_val(key)) is None:
         return
 
-    await getval.send_val(update.get_bot(), update.message.chat_id, None, key, val, show_header=False)
+    await getval.send_val(update.get_bot(), CommandTrigger.from_update(update), key, val, show_header=False)
 
 
 def again_setter(func):
@@ -284,6 +284,8 @@ async def post_init(a: Application) -> None:
     missing, filled = await fill_usernames(a.bot)
     if missing:
         logger.info(f"Filled {filled}/{missing} missing usernames")
+
+    getval.start_tget_poller(a.bot)
 
     await a.bot.set_my_commands([
         ("ping", "am I alive?"),
@@ -333,7 +335,8 @@ async def post_init(a: Application) -> None:
         ("takistats", "[difficulty] get all-time stats for taki"),
         ("chalice", "<thing> how full is the chalice of thing?"),
         ("uptime", "total time I've been running with no sleep"),
-        ("glazestats", "[person] who is glazing whom rn, optionally focusing on this person")
+        ("glazestats", "[person] who is glazing whom rn, optionally focusing on this person"),
+        ("tget", "<minutes> <key> delay /get by this many minutes"),
     ])
 
 

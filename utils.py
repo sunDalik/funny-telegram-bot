@@ -1,8 +1,9 @@
 from _secrets import user_aliases, lucky_numbers, secrets_chat_ids
-from telegram import Bot, ReplyParameters
+from telegram import Bot, Update
 from telegram.ext import CallbackContext
 from telegram.error import TelegramError
 from collections import Counter
+from dataclasses import dataclass
 import random
 import db
 from db import M, MR, U
@@ -41,10 +42,33 @@ def count_emojis(emoji_str: str) -> list[tuple[str, int]]:
     return list(result.items())
 
 
-def reply_params(msg_id: int | None) -> ReplyParameters | None:
-    if msg_id is None:
-        return None
-    return ReplyParameters(message_id=msg_id, allow_sending_without_reply=True)
+@dataclass(frozen=True)
+class CommandTrigger:
+    chat_id: int
+    msg_id: int = 0
+    user_id: int = 0
+    quote_text: str = ""
+    quote_user: str = ""
+
+    @staticmethod
+    def from_update(update: Update) -> "CommandTrigger":
+        msg = update.effective_message
+        if msg is None:
+            chat = update.effective_chat
+            return CommandTrigger(chat_id=chat.id if chat is not None else 0)
+
+        quote_text = ""
+        quote_user = ""
+        if msg.quote is not None and msg.quote.text:
+            quote_text = msg.quote.text  # the fragment the user actually selected
+        elif msg.reply_to_message is not None:
+            quote_text = msg.reply_to_message.text or msg.reply_to_message.caption or ""
+        if msg.reply_to_message is not None and msg.reply_to_message.from_user is not None:
+            author = msg.reply_to_message.from_user
+            quote_user = author.username or author.first_name or ""
+        return CommandTrigger(chat_id=msg.chat_id, msg_id=msg.message_id,
+                              user_id=msg.from_user.id if msg.from_user is not None else 0,
+                              quote_text=quote_text, quote_user=quote_user)
 
 
 def fmt_linked_msg_html(text: str, msg_id: int, chat_id: int) -> str:

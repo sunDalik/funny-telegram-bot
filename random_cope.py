@@ -5,6 +5,7 @@ import asyncio
 import logging
 from getval import send_val, vals_of_type, all_keys, get_val, TYPE_GIF, TYPE_STICKER
 from opinion import opinion
+from utils import CommandTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ async def random_cope(update: Update, context: CallbackContext):
         await asyncio.sleep(0.5)
         logger.info(f"cope get {key}")
         val = get_val(key)
-        await send_val(update.get_bot(), update.message.chat_id, None, key, val, show_header=True)
+        await send_val(update.get_bot(), CommandTrigger.from_update(update), key, val, show_header=True)
     elif res == 23:
         await opinion(update, context, "коуп")
     elif res == 24:

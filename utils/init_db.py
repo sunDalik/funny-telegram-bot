@@ -3,7 +3,7 @@ import sys
 import sqlite3
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from db import M, MR, U, GV, GJ
+from db import M, MR, U, GV, GJ, PV
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'bot.db')
 
@@ -52,10 +52,18 @@ if __name__ == '__main__':
             {GJ.USER_ID} INTEGER NOT NULL,
             {GJ.GET_KEY} TEXT NOT NULL,
             {GJ.TARGET_TS} INTEGER NOT NULL,
+            {GJ.QUOTE_TEXT} TEXT NOT NULL DEFAULT '',
+            {GJ.QUOTE_USER} TEXT NOT NULL DEFAULT '',
             PRIMARY KEY ({GJ.CHAT_ID}, {GJ.MSG_ID})
         );
         CREATE INDEX IF NOT EXISTS idx_{GJ.TABLE}_{GJ.TARGET_TS}
             ON {GJ.TABLE}({GJ.TARGET_TS});
+
+        CREATE TABLE IF NOT EXISTS {PV.TABLE} (
+            {PV.KEY}     TEXT NOT NULL,
+            {PV.VALUE}   INTEGER NOT NULL,
+            PRIMARY KEY ({PV.KEY})
+        );
     """)
     conn.commit()
     conn.close()

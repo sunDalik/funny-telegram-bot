@@ -25,6 +25,7 @@ import chalice
 import uptime
 import talk
 import stats
+import pyrun
 from utils import PUNCTUATION_REGEX, CommandTrigger, fill_usernames
 import time
 
@@ -337,6 +338,8 @@ async def post_init(a: Application) -> None:
         ("uptime", "total time I've been running with no sleep"),
         ("glazestats", "[person] who is glazing whom rn, optionally focusing on this person"),
         ("tget", "<minutes> <key> delay /get by this many minutes"),
+        ("py", "<code> run a python script"),
+        ("pyundo", "undo your last script"),
     ])
 
 
@@ -374,6 +377,7 @@ if __name__ == '__main__':
     uptime.subscribe(a)
     stats.subscribe(a)
     talk.subscribe(a, again_setter)
+    pyrun.subscribe(a)
 
 
     a.add_handler(CommandHandler("test", lambda update, context: test(update, context)))

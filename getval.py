@@ -12,6 +12,7 @@ import time
 import db
 from db import GV, GJ
 from utils import CommandTrigger, fmt_linked_msg_html
+import pyrun
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ TYPE_PHOTO = "photo"
 TYPE_VIDEO = "video"
 TYPE_VOICE = "voice"
 TYPE_POLL = "poll"
+TYPE_PY = "py"
 TYPE_RND = "rnd"
 TYPE_DICE = "dice"
 
@@ -33,6 +35,7 @@ RAW_PREFIXES = {
     TYPE_VIDEO: "#!/VideoFile",
     TYPE_VOICE: "#!/VoiceMessage",
     TYPE_RND: "#!/RandomizedGet",
+    TYPE_PY: "#!/PyScript",
 }
 
 REPLACE_VAL_LABELS = {
@@ -43,6 +46,7 @@ REPLACE_VAL_LABELS = {
     TYPE_VIDEO: "было какое-то видео",
     TYPE_VOICE: "было какое-то голосовое",
     TYPE_RND: "было что-то рандомное",
+    TYPE_PY: "был какой-то скрипт",
 }
 
 CAPTION_TYPES = (TYPE_GIF, TYPE_PHOTO, TYPE_VIDEO)
@@ -83,6 +87,8 @@ def fmt_rawget(type: str, data: str, caption: str = "") -> str:
 
 
 def parse_set_data(text: str) -> tuple[str, str, str]:
+    if code := pyrun.extract_code(text):
+        return TYPE_PY, code, ""
     return parse_rawget(text)
 
 
@@ -143,6 +149,8 @@ async def send_val(bot: Bot, trigger: CommandTrigger, key: str, val: db.GetVal |
         await bot.send_voice(trigger.chat_id, val.data)
     elif val.type == TYPE_DICE:
         await bot.send_dice(trigger.chat_id, emoji=val.data)
+    elif val.type == TYPE_PY:
+        await pyrun.run_stored_script(bot, trigger, key, val.data)
     elif val.type == TYPE_RND:
         if recursion_level > 100:
             await bot.send_message(trigger.chat_id, "Мужик иди в задницу со своей рекурсией")
@@ -213,6 +221,8 @@ async def handle_rawget(update: Update, context: CallbackContext):
         return
     if val.type == TYPE_RND:
         await update.message.reply_text(f"/rndset {val.key} {val.data}", do_quote=False)
+    elif val.type == TYPE_PY:
+        await update.message.reply_text(f"/set {val.key} /py {val.data}", do_quote=False)
     else:
         await update.message.reply_text(f"/set {val.key} {fmt_rawget(val.type, val.data, val.caption)}", do_quote=False)
 
@@ -364,8 +374,10 @@ async def handle_tget(update: Update, context: CallbackContext):
         await send_get_response(update.get_bot(), CommandTrigger.from_update(update), key, show_header=True)
         return
 
-    db.get().insert(db.GetJob(msg_id=msg.message_id, chat_id=msg.chat_id, user_id=msg.from_user.id,
-                              get_key=key, target_ts=int(time.time()) + delay_min * 60))
+    trigger = CommandTrigger.from_update(update)
+    db.get().insert(db.GetJob(msg_id=trigger.msg_id, chat_id=trigger.chat_id, user_id=trigger.user_id,
+                              get_key=key, target_ts=int(time.time()) + delay_min * 60,
+                              quote_text=trigger.quote_text, quote_user=trigger.quote_user))
     db.get().commit()
     await update.get_bot().set_message_reaction(msg.chat_id, msg.message_id, "👌")
 
@@ -377,7 +389,8 @@ async def send_due_tgets(bot: Bot):
         del_tget(job.chat_id, job.msg_id)
         logger.info(f"[tget] Sending timed \"{job.get_key}\" for message {job.msg_id} in chat {job.chat_id}")
         try:
-            trigger = CommandTrigger(chat_id=job.chat_id, msg_id=job.msg_id, user_id=job.user_id)
+            trigger = CommandTrigger(chat_id=job.chat_id, msg_id=job.msg_id, user_id=job.user_id,
+                                     quote_text=job.quote_text, quote_user=job.quote_user)
             val = get_close_val(job.get_key)
             key = val.key if val else job.get_key
             timer = fmt_linked_msg_html(f"⏰ {key}", job.msg_id, job.chat_id)

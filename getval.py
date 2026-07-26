@@ -45,7 +45,7 @@ REPLACE_VAL_LABELS = {
     TYPE_RND: "было что-то рандомное",
 }
 
-CAPTION_TYPES = (TYPE_PHOTO, TYPE_VIDEO)
+CAPTION_TYPES = (TYPE_GIF, TYPE_PHOTO, TYPE_VIDEO)
 CAPTION_DELIMITER = "/*#!&!#*/"
 
 DICE_EMOJIS = ('🎲', '🎯', '🏀', '⚽️', '🎳', '🎰')
@@ -134,7 +134,7 @@ async def send_val(bot: Bot, trigger: CommandTrigger, key: str, val: db.GetVal |
     elif val.type == TYPE_STICKER:
         await bot.send_sticker(trigger.chat_id, val.data)
     elif val.type == TYPE_GIF:
-        await bot.send_animation(trigger.chat_id, val.data)
+        await bot.send_animation(trigger.chat_id, val.data, caption=val.caption)
     elif val.type == TYPE_PHOTO:
         await bot.send_photo(trigger.chat_id, val.data, caption=val.caption)
     elif val.type == TYPE_VIDEO:
@@ -253,10 +253,12 @@ async def handle_set(update: Update, context: CallbackContext):
                 type, data = TYPE_STICKER, update.message.reply_to_message.sticker.file_id
             elif update.message.reply_to_message.animation is not None:
                 type, data = TYPE_GIF, update.message.reply_to_message.animation.file_id
+                caption = update.message.reply_to_message.caption or ""
             # I don't know why but some GIF animations are only stored in .document but not in .animation even though they behave the same
             # Maybe we can unify this behavior IF all of the animations are stored in document?
             elif update.message.reply_to_message.document is not None and update.message.reply_to_message.document.mime_type == 'image/gif':
                 type, data = TYPE_GIF, update.message.reply_to_message.document.file_id
+                caption = update.message.reply_to_message.caption or ""
             elif update.message.reply_to_message.photo is not None and len(update.message.reply_to_message.photo) > 0:
                 # Messages store photos in an array where the last object of an array is the highest resolution version of a photo
                 type, data = TYPE_PHOTO, update.message.reply_to_message.photo[-1].file_id

@@ -3,3 +3,4 @@ redis==4.4.0
 markovify==0.9.4
 regex
 pyeryx==0.5.0
+tzdata==2026.3

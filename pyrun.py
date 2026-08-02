@@ -6,8 +6,10 @@ import logging
 import re
 from collections.abc import Collection
 from dataclasses import dataclass
+from pathlib import Path
 
 import eryx
+import tzdata
 from telegram import Bot, Update
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
@@ -30,6 +32,8 @@ MAX_VAR_KEY_LEN = 64
 MAX_VAR_KEYS = 1000
 SQLITE_INT_MIN = -(2 ** 63)
 SQLITE_INT_MAX = 2 ** 63 - 1
+TZDATA_DIR = Path(tzdata.__file__).parent / "zoneinfo"
+TZDATA_MOUNT = "/_pyrun_tzdata"
 
 HELP_TEXT = (
     "Присылай питон на прогонку: <code>/py 300+13</code>\n\n"
@@ -50,6 +54,8 @@ HELP_TEXT = (
 # Injected in /py code
 _PROLOG = '''\
 import json as _pyrun_json
+import zoneinfo as _pyrun_zoneinfo
+_pyrun_zoneinfo.reset_tzpath([{tzdata_mount}])
 _pyrun_kv = _pyrun_json.loads({kv})
 _pyrun_ctx = _pyrun_json.loads({ctx})
 _pyrun_kv_w = {{}}
@@ -104,7 +110,11 @@ def _get_sandbox_src(src: str, trigger: CommandTrigger, vars: dict[str, int], us
         "user": user,
         "users": users,
     })
-    prolog = _PROLOG.format(kv=json.dumps(json.dumps(vars)), ctx=json.dumps(context_json))
+    prolog = _PROLOG.format(
+        tzdata_mount=json.dumps(TZDATA_MOUNT),
+        kv=json.dumps(json.dumps(vars)),
+        ctx=json.dumps(context_json),
+    )
     return prolog + assign_last_expr_to_var(src) + "\n" + _EPILOG
 
 
@@ -202,7 +212,13 @@ async def _run_locked(code: str, trigger: CommandTrigger) -> RunResult:
 
     def run_sandbox():
         limits = eryx.ResourceLimits(execution_timeout_ms=EXEC_TIMEOUT_MS, max_memory_bytes=MAX_MEMORY_BYTES)
-        sandbox = eryx.Sandbox(resource_limits=limits, result_variable=RESULT_VAR, on_stdout=stdout, on_stderr=stderr)
+        sandbox = eryx.Sandbox(
+            resource_limits=limits,
+            result_variable=RESULT_VAR,
+            volumes=[(str(TZDATA_DIR), TZDATA_MOUNT, True)],
+            on_stdout=stdout,
+            on_stderr=stderr,
+        )
         return sandbox.execute(full_code)
 
     def fail(error: str, stderr_text: str) -> RunResult:

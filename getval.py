@@ -2,10 +2,12 @@ from _secrets import banned_user_ids
 from telegram import Bot, Update, ReplyParameters
 from telegram.constants import ParseMode
 from telegram.ext import Application, CallbackContext, CommandHandler
+import ast
 import asyncio
 import difflib
 import json
 import logging
+import operator
 import random
 import re
 import time
@@ -344,6 +346,35 @@ async def handle_getall(update: Update, context: CallbackContext):
 
 _tget_poller_task = None
 
+_SAFE_BIN_OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_SAFE_UNARY_OPS = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
+
+
+def _eval_arith_node(node):
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+    if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_BIN_OPS:
+        return _SAFE_BIN_OPS[type(node.op)](_eval_arith_node(node.left), _eval_arith_node(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _SAFE_UNARY_OPS:
+        return _SAFE_UNARY_OPS[type(node.op)](_eval_arith_node(node.operand))
+    raise ValueError("Unsupported expression")
+
+
+def eval_delay_expr(expr: str) -> int:
+    tree = ast.parse(expr, mode="eval")
+    return int(_eval_arith_node(tree.body))
+
 
 def del_tget(chat_id: int, msg_id: int):
     db.get().execute(f"DELETE FROM {GJ.TABLE} WHERE {GJ.CHAT_ID}=? AND {GJ.MSG_ID}=?",
@@ -360,14 +391,19 @@ async def handle_tget(update: Update, context: CallbackContext):
     editing_prev_tget = db.get().execute(f"SELECT 1 FROM {GJ.TABLE} WHERE {GJ.CHAT_ID}=? AND {GJ.MSG_ID}=?",
                                          (msg.chat_id, msg.message_id)).fetchone() is not None
 
-    if (match := re.match(r'/[^\s@]+(?:@\S+)?\s+(\d+)\s+(\S+)', msg.text)) is None:
+    if (match := re.match(r'/[^\s@]+(?:@\S+)?\s+([\d+\-*/().\s]+?)\s+(\S+)', msg.text)) is None:
         if editing_prev_tget:
             del_tget(msg.chat_id, msg.message_id)
         else:
             await msg.reply_text("Напиши задержку в минутах и какой гет тебе выдать: /tget 30 dtg", do_quote=True)
         return
 
-    delay_min, key = int(match.group(1)), match.group(2)
+    try:
+        delay_min, key = eval_delay_expr(match.group(1)), match.group(2)
+    except (ValueError, SyntaxError, ZeroDivisionError, TypeError):
+        await msg.reply_text("Не понял выражение для задержки, попробуй еще раз", do_quote=True)
+        return
+
     if delay_min == 0:
         if editing_prev_tget:
             del_tget(msg.chat_id, msg.message_id)
